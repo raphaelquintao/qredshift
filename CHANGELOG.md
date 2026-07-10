@@ -1,9 +1,16 @@
-## Changelog
+# Changelog
 
+* 0.13
+  * Add the `-interp` option to use the legacy Redshift-style interpolated gamma ramp calculation.
+  * Apply the selected gamma calculation mode consistently across both the XCB and Xlib backends.
+  * Embed the application name and version in the binary and bump the project version to `0.13`.
+  * Expanded the README with updated project background, feature details, and usage documentation.
+  * Limited input params to safe values.
 * 0.12
     * Uses XCB by default.
     * Add `-xlib` flag to use Xlib instead of XCB for display manipulation.
-    * Return current settet settings on `-i`.
+    * Improve `-i` output by reconstructing the active temperature, brightness, and gamma values from the current display gamma ramps.
+
 * 0.11
     * Added cross-compilation support using Docker.
 * 0.10

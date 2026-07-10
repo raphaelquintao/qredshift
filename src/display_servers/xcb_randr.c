@@ -45,7 +45,7 @@ char *int_array_to_string(uint8_t *a, int len) {
     return str;
 }
 
-int randr_show_info(int only_connected) {
+int randr_show_info(int only_connected, int interpolation) {
     XCB_RANDR state;
 
     if (randr_init(&state) < 0) {
@@ -106,7 +106,7 @@ int randr_show_info(int only_connected) {
                     uint16_t *g = xcb_randr_get_crtc_gamma_green(gamma_reply);
                     uint16_t *b = xcb_randr_get_crtc_gamma_blue(gamma_reply);
                     GAMMA ramp = {r, g, b};
-                    GammaParams params = reverse_gamma_ramp(&ramp, ramp_size);
+                    GammaParams params = reverse_gamma_ramp(&ramp, ramp_size, interpolation);
                     printf("T: %dK | B: %.2f | G: %.2f\n", params.kelvin, params.bright, params.gamma);
                     free(gamma_reply);
                 } else {
@@ -131,7 +131,7 @@ int randr_show_info(int only_connected) {
     return 0;
 }
 
-int randr_set_temperature(int kelvin, double bright, double gamma) {
+int randr_set_temperature(int kelvin, double bright, double gamma, int interpolation) {
     XCB_RANDR state;
 
     if (randr_init(&state) < 0) {
@@ -161,7 +161,7 @@ int randr_set_temperature(int kelvin, double bright, double gamma) {
             return -1;
         }
 
-        if (gammas == NULL) gammas = calculate_gamma_ramp(kelvin, bright, gamma, (int) gamma_size_reply->size);
+        if (gammas == NULL) gammas = calculate_gamma_ramp(kelvin, bright, gamma, (int) gamma_size_reply->size, interpolation);
 
         xcb_void_cookie_t gamma_set_cookie = xcb_randr_set_crtc_gamma_checked(state.conn, crtcs[i], gamma_size_reply->size, gammas->r, gammas->g, gammas->b);
         xcb_generic_error_t *error2 = xcb_request_check(state.conn, gamma_set_cookie);

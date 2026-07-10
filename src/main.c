@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "display_servers/x11_randr.h"
 #include "display_servers/xcb_randr.h"
 
 
-const char* NAME = "qredshift";
-const double VERSION = 0.12;
+const char* APP_NAME = NAME;
+const char* APP_VERSION = VERSION;
+
 
 
 typedef struct {
@@ -17,8 +19,13 @@ typedef struct {
     int exists;
 } PARAM;
 
+static int clamp_int(int value, int min, int max) {
+    return (value < min) ? min : ((value > max) ? max : value);
+}
+
+
 void print_help(int params_size, PARAM* params, FILE* stream) {
-    fprintf(stream, "Usage: %s -t [temperature in Kelvin] -b [bright] -g [gamma]\n\n", NAME);
+    fprintf(stream, "Usage: %s -t [temperature in Kelvin] -b [bright] -g [gamma]\n\n", APP_NAME);
     for (int c = 0; c < params_size; c++) {
         if (strcmp(params[c].name, "") == 0) fprintf(stream, "\n");
         else fprintf(stream, "  %-6s %-6s %s\n", params[c].name, params[c].value, params[c].desc);
@@ -72,10 +79,11 @@ int main(int argc, char* argv[]) {
         {"-t", "Temperature in kelvin", "6500", 0},
         {"-b", "Brightness from 0.1 to 1.0", "1.0", 0},
         {"-g", "Gamma from 0.1 to 1.0", "1.0", 0},
-        {"-xlib", "Use Xlib instead of XCB", "", 0}
+        {"-xlib", "Use Xlib instead of XCB", "", 0},
+        {"-interp", "Use interpolation method", "", 0}
     };
 
-    int params_size = sizeof(params) / sizeof(PARAM);
+    const int params_size = sizeof(params) / sizeof(PARAM);
 
     if (argc <= 1) {
         print_help(params_size, params, stderr);
@@ -89,13 +97,15 @@ int main(int argc, char* argv[]) {
 
     // -v
     if (params[1].exists) {
-        printf("%s %.2f\n", NAME, VERSION);
+        printf("%s %s\n", APP_NAME, APP_VERSION);
         return 0;
     }
 
+    const int interp = params[8].exists;
+
     // -i
     if (params[2].exists) {
-        int x11 = is_x11();
+        const int x11 = is_x11();
         // printf("Dys:");
         // if (x11 == 1) printf("x11\n");
         // else printf("%s\n", getenv("XDG_SESSION_TYPE"));
@@ -108,10 +118,10 @@ int main(int argc, char* argv[]) {
 
         if (x11) {
             if (params[7].exists) {
-                x11_randr_show_info(1);
+                x11_randr_show_info(1, interp);
             }
             else {
-                randr_show_info(1);
+                randr_show_info(1, interp);
             }
         }
         return 0;
@@ -122,13 +132,17 @@ int main(int argc, char* argv[]) {
     double bright = atof(params[5].value);
     double gamma = atof(params[6].value);
 
+    kelvin = clamp_int(kelvin, 1000, 25000);
+    bright = fmin(fmax(bright, 0.1), 1.0);
+    gamma = fmin(fmax(gamma, 0.1), 1.0);
+
 
     if (is_x11()) {
         if (params[7].exists) {
-            x11_randr_set_temperature(kelvin, bright, gamma);
+            x11_randr_set_temperature(kelvin, bright, gamma, interp);
         }
         else {
-            randr_set_temperature(kelvin, bright, gamma);
+            randr_set_temperature(kelvin, bright, gamma, interp);
         }
     }
     else {

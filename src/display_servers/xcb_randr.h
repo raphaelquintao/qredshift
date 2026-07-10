@@ -13,6 +13,6 @@ int randr_init(XCB_RANDR *state);
 
 void randr_free(XCB_RANDR *state);
 
-int randr_show_info(int only_connected);
+int randr_show_info(int only_connected, int interpolation);
 
-int randr_set_temperature(int kelvin, double bright, double gamma);
+int randr_set_temperature(int kelvin, double bright, double gamma, int interpolation);

@@ -32,7 +32,7 @@ int x11_randr_close(X11_RANDR* state) {
     return 0;
 }
 
-int x11_randr_show_info(int only_connected) {
+int x11_randr_show_info(int only_connected, int interpolation) {
     X11_RANDR state;
     x11_randr_init(&state);
 
@@ -57,7 +57,7 @@ int x11_randr_show_info(int only_connected) {
             if (output_info->crtc) {
                 XRRCrtcGamma* current_gamma = XRRGetCrtcGamma(state.dpy, output_info->crtc);
                 GAMMA ramp = {current_gamma->red, current_gamma->green, current_gamma->blue};
-                GammaParams params = reverse_gamma_ramp(&ramp, current_gamma->size);
+                GammaParams params = reverse_gamma_ramp(&ramp, current_gamma->size, interpolation);
                 printf("T: %dK | B: %.2f | G: %.2f\n", params.kelvin, params.bright, params.gamma);
 
                 XRRFreeGamma(current_gamma);
@@ -78,7 +78,7 @@ int x11_randr_show_info(int only_connected) {
 }
 
 
-int x11_randr_set_temperature(int kelvin, double bright, double gamma) {
+int x11_randr_set_temperature(int kelvin, double bright, double gamma, int interpolation) {
     X11_RANDR state;
 
     x11_randr_init(&state);
@@ -102,7 +102,7 @@ int x11_randr_set_temperature(int kelvin, double bright, double gamma) {
 
         if (gammas == NULL) {
             ramp_size = size;
-            gammas = calculate_gamma_ramp(kelvin, bright, gamma, ramp_size);
+            gammas = calculate_gamma_ramp(kelvin, bright, gamma, ramp_size, interpolation);
             x11_gamma = XRRAllocGamma(ramp_size);
             for (int i = 0; i < ramp_size; i++) {
                 x11_gamma->red[i] = gammas->r[i];

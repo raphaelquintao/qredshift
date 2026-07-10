@@ -21,7 +21,8 @@ BIN_mipsel  = qredshift_mipsel
 BIN_powerpc64le = qredshift_powerpc64le
 BIN_s390x   = qredshift_s390x
 
-VERSION = 0.12
+NAME = "qredshift"
+VERSION = "0.13"
 DOCKER_IMAGE_NAME = qredshift-cross
 PWD = $(shell pwd)
 U = $(shell id -u $(SUDO_USER)):$(shell id -g $(SUDO_USER))
@@ -34,7 +35,7 @@ srсs = $(shell find $(src_dir) -name '*.c')
 
 #cflags = -O2 -Wall $(shell pkg-config --cflags gio-2.0 glib-2.0 x11 xrandr xcb xcb-randr)
 #ldflags = $(shell pkg-config --libs gio-2.0 glib-2.0 x11 xrandr xcb xcb-randr) -lm
-cflags = -O2 -Wall $(shell pkg-config --cflags x11 xrandr xcb xcb-randr)
+cflags = -std=c99 -pedantic-errors -O2 -Wall -DVERSION=\"$(VERSION)\" -DNAME=\"$(NAME)\" $(shell pkg-config --cflags x11 xrandr xcb xcb-randr)
 ldflags = $(shell pkg-config --libs x11 xrandr xcb xcb-randr) -lm
 
 

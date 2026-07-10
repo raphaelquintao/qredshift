@@ -12,6 +12,6 @@ int x11_randr_init(X11_RANDR *state);
 
 int x11_randr_close(X11_RANDR *state);
 
-int x11_randr_show_info(int connected);
+int x11_randr_show_info(int connected, int interpolation);
 
-int x11_randr_set_temperature(int kelvin, double bright, double gamma);
+int x11_randr_set_temperature(int kelvin, double bright, double gamma, int interpolation);

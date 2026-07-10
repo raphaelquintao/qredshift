@@ -21,8 +21,8 @@ typedef struct {
 
 RGB kelvin_to_rgb(double kelvin);
 
-GAMMA *calculate_gamma_ramp(int kelvin, double bright, double gamma, int ramp_size);
+GAMMA *calculate_gamma_ramp(int kelvin, double bright, double gamma, int ramp_size, int interpolation);
 
-GammaParams reverse_gamma_ramp(const GAMMA *ramp, int ramp_size);
+GammaParams reverse_gamma_ramp(const GAMMA *ramp, int ramp_size, int interpolation);
 
 void free_gamma_ramp(GAMMA *ramp);
