@@ -1,7 +1,8 @@
-# QRedshift
+# QRedshift CLI
 
-A lightweight native Linux utility for adjusting display **color temperature**, **brightness**, and **gamma**. Originally developed as a Redshift replacement backend for the **QRedshift Cinnamon Applet**, it has since evolved into a standalone command-line application focused on **speed**, **simplicity**, and **minimal dependencies**.
+A lightweight native Linux utility for adjusting display **color temperature**, **brightness**, and **gamma**. 
 
+Originally developed as a Redshift replacement backend for the **QRedshift Cinnamon Applet**, it has since evolved into a standalone command-line application. 
 
 ### Cinnamon Applet
 
@@ -119,7 +120,7 @@ Thank you.
 - [x] Native X11 support
 - [x] XCB backend (default)
 - [x] Xlib backend
-- [x] Tiny native executable (~40KB)
+- [x] Tiny executable (~40KB)
 
 ## Planned
 
@@ -138,6 +139,37 @@ Rather than relying on desktop-specific integrations or widget toolkits, the int
 
 The command-line utility will remain the project's foundation, while the graphical interface will simply become another frontend on top of it.
 
+## Installation
+
+### From Latest Release
+
+Pre-built binaries and Debian packages are available on the [latest release](https://github.com/raphaelquintao/QRedshift/releases/latest) page:
+
+- **Binary**: Download the `qredshift` executable for your architecture
+- **Debian Package**: Download the `.deb` package for easy installation:
+  ```shell
+  sudo dpkg -i qredshift_*.deb
+  ```
+  
+### From Source
+
+#### Build and Install
+
+First, install the required dependencies, then compile and install:
+
+###### Debian
+```shell
+sudo apt-get install libxrandr-dev libxcb1-dev libxcb-randr0-dev
+make
+sudo make install
+```
+
+###### Arch
+```shell
+sudo pacman -Syu libxrandr libxcb xcb-util
+make
+sudo make install
+```
 
 ## Usage
 

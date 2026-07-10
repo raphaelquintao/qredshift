@@ -83,3 +83,8 @@ docker:
 		echo "Image $(DOCKER_IMAGE_NAME) already exists."; \
 	fi
 	@docker run -it -v $(PWD):/qredshift -u $(U) qredshift-cross make $(ARCHS) debs
+
+install:
+	@echo ===\> Installing $(bin) \<===
+	@sudo cp $(build_dir)/$(bin) /usr/bin/qredshift
+	@sudo chmod +x /usr/bin/qredshift
