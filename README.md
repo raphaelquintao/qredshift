@@ -8,7 +8,7 @@ Originally developed as a Redshift replacement backend for the **QRedshift Cinna
 
 If you're looking for the Cinnamon applet, it has been moved to its own repository: [QRedshiftCinnamon](https://github.com/raphaelquintao/QRedshiftCinnamon).
 
-## Why I Created QRedshift
+## Why I wrote QRedshift 
 
 I originally created **QRedshift Cinnamon** in 2019 as a personal project to improve my own desktop experience. After using it daily for quite some time, I decided to publish it.
 
