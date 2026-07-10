@@ -3,6 +3,15 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to create or update (example: v0.13)"
+        required: true
+      target_ref:
+        description: "Branch or commit to build when running manually"
+        required: false
+        default: "master"
 
 permissions:
   contents: write
@@ -14,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.ref }}
 
       - name: Build Docker image
         run: docker build . -t qredshift-cross
@@ -24,7 +35,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v3.0.1
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+          target_commitish: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.sha }}
           generate_release_notes: true
+          draft: true
           files: |
             build/qredshift_*
             build/*.deb
