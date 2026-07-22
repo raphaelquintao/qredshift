@@ -1,0 +1,112 @@
+.TH QREDSHIFT 1 "2026" "qredshift" "User Commands"
+.SH NAME
+qredshift \- A modern, fast, stateless Linux CLI tool to manipulate screen color temperature across X11 and Wayland.
+.SH SYNOPSIS
+.B qredshift
+.RB [ \-h ]
+.RB [ \-v ]
+.RB [ \-i ]
+.RB [ \-t
+.IR kelvin ]
+.RB [ \-b
+.IR brightness ]
+.RB [ \-g
+.IR gamma ]
+.RB [ \-d
+.IR target ]\ .\|.\|.
+.RB [ \-xlib ]
+.RB [ \-interp ]
+.SH DESCRIPTION
+A command-line utility to manipulate screen color temperature based on
+user preferences. Designed to be lightweight and stateless, it features
+native multi-display support for X11 environments and compatibility with
+Wayland compositors implementing the wlr-roots protocol.
+.PP
+This tool serves as a modern replacement for legacy color temperature
+utilities like redshift.
+.PP
+By default all connected displays are updated with the same values. The
+.SH OPTIONS
+.TP
+.B \-h
+Display usage help.
+.TP
+.B \-v
+Show program version.
+.TP
+.B \-i
+Show information about connected displays, including their current
+estimated temperature, brightness, and gamma.
+.TP
+.BI \-t \ kelvin
+Set temperature in Kelvin, from 1000 to 25000. Defaults to 6500 (no color
+shift). Calling
+.B qredshift \-t
+with no value resets to the default.
+.TP
+.BI \-b \ brightness
+Set brightness, from 0.1 to 1.0. Defaults to 1.0.
+.TP
+.BI \-g \ gamma
+Set gamma, from 0.1 to 5.0. Defaults to 1.0.
+.TP
+.BI \-d \ target
+Target a specific display by index or RandR output name, optionally
+overriding temperature, brightness, or gamma for that display only. May be
+repeated to target multiple displays in a single call. Any parameter not
+specified in a
+.B \-d
+block falls back to the global value set by
+.BR \-t / \-b / \-g .
+.RS
+.PP
+Syntax:
+.I id
+.RB [ :t= K ]
+.RB [ :b= B ]
+.RB [ :g= G ]
+.PP man
+Examples:
+.RS
+.PP
+.B qredshift \-t 4500 \-d 1
+.RS 0
+target display 1 by index, using the global temperature
+.RE
+.PP
+.B qredshift \-t 4500 \-d HDMI\-1
+.RS 0
+target display by RandR output name
+.RE
+.PP
+.B qredshift \-t 6500 \-d 1:t=4500:b=0.8
+.RS 0
+display 1 overrides temperature and brightness; other displays get the global 6500K
+.RE
+.PP
+.B qredshift \-d 0:t=6500:b=1.0 \-d 1:t=4500:b=0.8
+.RS 0
+two displays, fully independent settings
+.RE
+.RE
+.RE
+.TP
+.B \-xlib
+Use the Xlib backend instead of the default XCB backend.
+.TP
+.B \-interp
+Use the legacy interpolation method for Kelvin-to-RGB conversion.
+.SH EXIT STATUS
+.B 0
+on success, non-zero on error (for example, no supported display server
+found, or an X server communication failure).
+.SH ENVIRONMENT
+.TP
+.B XDG_SESSION_TYPE
+Used to detect whether the current session is running under X11.
+.SH SEE ALSO
+.BR xrandr (1)
+.SH AUTHOR
+Raphael Quintao <raphaelquintao@gmail.com>
+.SH HOMEPAGE
+https://github.com/raphaelquintao/QRedshift

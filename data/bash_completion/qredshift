@@ -1,0 +1,63 @@
+_qredshift() {
+  local cur prev words cword
+  _get_comp_words_by_ref -n : cur prev words cword
+
+  local flags="-h -v -i -t -b -g -xlib -interp -d"
+
+  if [[ "$cur" == *:* ]]; then
+    local base="${cur%:*}:"
+    local suffix="${cur##*:}"
+
+    local used_t= used_b= used_g=
+    [[ "$cur" == *:t=* ]] && used_t=1
+    [[ "$cur" == *:b=* ]] && used_b=1
+    [[ "$cur" == *:g=* ]] && used_g=1
+
+    case "$suffix" in
+    t=*)
+      local val="${suffix#t=}"
+      COMPREPLY=($(compgen -P "${base}t=" -W "1000 2000 2700 3000 3500 4000 4500 5000 5500 6500 7000 8000 9000" -- "$val"))
+      __ltrim_colon_completions "$cur"
+      return
+      ;;
+    b=* | g=*)
+      local key="${suffix%%=*}"
+      local val="${suffix#*=}"
+      COMPREPLY=($(compgen -P "${base}${key}=" -W "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" -- "$val"))
+      __ltrim_colon_completions "$cur"
+      return
+      ;;
+    esac
+
+    local sub_keys=
+    [[ -z "$used_t" ]] && sub_keys+="t= "
+    [[ -z "$used_b" ]] && sub_keys+="b= "
+    [[ -z "$used_g" ]] && sub_keys+="g= "
+    COMPREPLY=($(compgen -P "$base" -W "$sub_keys" -- "$suffix"))
+    __ltrim_colon_completions "$cur"
+    compopt -o nospace
+    return
+  fi
+
+  case "$prev" in
+  -t)
+    COMPREPLY=($(compgen -W "1000 2000 2700 3000 3500 4000 4500 5000 5500 6500 7000 8000 9000" -- "$cur"))
+    return
+    ;;
+  -b | -g)
+    COMPREPLY=($(compgen -W "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" -- "$cur"))
+    return
+    ;;
+  -d)
+    local displays
+    displays=$(qredshift -i 2>/dev/null | awk -F: '/^[0-9]+:[CD]:/ { print $1; print $3 }')
+    COMPREPLY=($(compgen -W "$displays" -- "$cur"))
+    compopt -o nospace
+    return
+    ;;
+  esac
+
+  COMPREPLY=($(compgen -W "$flags" -- "$cur"))
+}
+
+complete -F _qredshift qredshift

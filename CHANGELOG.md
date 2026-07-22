@@ -1,5 +1,13 @@
 # Changelog
 
+* 1.0
+  * Streamline build pipeline and drop support for legacy architectures:
+    - Drop armv5tel (armel), armv6l, and mips/mipsel because they lack
+      support for modern GUI environments (GNOME/KDE Plasma) and are
+      unsupported in upcoming Debian distributions.
+    - Drop s390x as it is an enterprise IBM mainframe server architecture
+      and does not run interactive X11 graphical desktop environments.
+
 * 0.13
   * Add the `-interp` option to use the legacy Redshift-style interpolated gamma ramp calculation.
   * Apply the selected gamma calculation mode consistently across both the XCB and Xlib backends.
