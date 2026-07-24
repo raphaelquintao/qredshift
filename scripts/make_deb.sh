@@ -179,11 +179,12 @@ PACKED="${PKG_NAME}_${RAW_VERSION}_${ARCH}.tar.gz"
 OUT_DEB="${PKG_NAME}_${VERSION}_${DEB_ARCH}.deb"
 
 #BIN_OUT_DIR="$PROJECT_ROOT/bin/$ARCH"
-BUILD_OUT_DIR="$PROJECT_ROOT/build/$ARCH"
+#BUILD_OUT_DIR="$PROJECT_ROOT/build/$ARCH"
 #OUT="${PKG_NAME}_${VERSION}_${DEB_ARCH}"
 #mkdir -p "$BIN_OUT_DIR"
-mkdir -p "$BUILD_OUT_DIR"
+#mkdir -p "$BUILD_OUT_DIR"
 
+mkdir -p "$PROJECT_ROOT/bin/"
 mkdir -p ../pack
 cp "debian/$PKG_NAME/usr/bin"/* ../pack/
 cp "debian/$PKG_NAME/usr/lib/$PKG_NAME"/* ../pack/
@@ -191,8 +192,8 @@ cp "$PROJECT_ROOT/LICENSE.txt" ../pack/
 cp -R data/* ../pack/
 
 
-cp -R build/"$ARCH"/* "$BUILD_OUT_DIR/"
-cp -R "debian" "$BUILD_OUT_DIR/"
+#cp -R build/"$ARCH"/* "$BUILD_OUT_DIR/"
+#cp -R "debian" "$BUILD_OUT_DIR/"
 
 cd ..
 #ls -la

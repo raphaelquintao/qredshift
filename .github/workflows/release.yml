@@ -28,9 +28,7 @@ jobs:
 
       - name: Cross-Compile Binaries and Linux Packages
         run: |
-          docker run --rm \
-            -v $(pwd):/qredshift \
-            qredshift-cross:latest make debs
+          docker run --rm -v $(pwd):/qredshift  -u "$(id -u):$(id -g)"  qredshift-cross:latest make debs
 
       # Points directly to 'bin/' matching your output files tree structure
       - name: Create and Upload Draft Release Assets
