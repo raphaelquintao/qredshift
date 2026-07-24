@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Existing tag to build and use for the draft release (example: v0.13)"
+        description: "Existing tag to build and use for the draft release (example: v1.0.0)"
         required: true
 
 permissions:
@@ -17,24 +17,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
 
-      - name: Build Docker image
-        run: docker build . -t qredshift-cross
+      - name: Build Cross-Compilation Container
+        run: make docker-image
 
-      - name: Build binaries and DEBs
+      - name: Cross-Compile Binaries and Linux Packages
         run: |
-          docker run -v $(pwd):/qredshift qredshift-cross sh -c "makes debs"
-      - name: Create Release
-        uses: softprops/action-gh-release@v3.0.1
+          docker run --rm \
+            -v $(pwd):/qredshift \
+            qredshift-cross:latest make debs
+
+      # Points directly to 'bin/' matching your output files tree structure
+      - name: Create and Upload Draft Release Assets
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
           generate_release_notes: true
           draft: true
           files: |
-            build/qredshift_*
-            build/*.deb
+            bin/*.deb
+            bin/*.tar.gz

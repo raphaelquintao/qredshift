@@ -86,14 +86,17 @@ Architecture: amd64 i386 arm64 armhf ppc64el
 Depends: \${shlibs:Depends}, \${misc:Depends}
 Recommends: bash-completion
 Suggests: \${custom:WaylandDepends}
-Description: Fast and Modern screen temperature tool supporting X11 multi-display and Wayland
- A command-line utility to manipulate screen color temperature based on
- user preferences. Designed to be lightweight and stateless, it features
- native multi-display support for X11 environments and compatibility with
- Wayland compositors implementing the wlr-roots protocol.
- .
- This tool serves as a modern replacement for legacy color temperature
- utilities like redshift.
+Description: Fast and Modern screen temperature tool supporting multi-display X11 and Wayland
+ A lightweight, stateless command-line utility for Linux display color
+ management. QRedshift lets you adjust screen temperature (kelvin),
+ brightness, and gamma correction on individual monitors across X11
+ (XCB/Xlib) and Wayland (wlr-gamma-control-unstable-v1) display
+ servers. It replaces redshift, sct, and gammastep with a C99
+ implementation that compiles to a ~40KB binary. Key features: native
+ multi-monitor support, reverse gamma reconstruction without stored
+ state, Wayland daemon mode with FIFO-based IPC, and a shared library
+ plugin design that avoids pulling libwayland-client as a dependency
+ on X11 systems.
 EOF
 
 cat >"$WORKSPACE/debian/changelog" <<EOF
@@ -181,8 +184,11 @@ BUILD_OUT_DIR="$PROJECT_ROOT/build/$ARCH"
 #mkdir -p "$BIN_OUT_DIR"
 mkdir -p "$BUILD_OUT_DIR"
 
-cp "debian/$PKG_NAME/usr/bin"/* ../
-cp "debian/$PKG_NAME/usr/lib/$PKG_NAME"/* ../
+mkdir -p ../pack
+cp "debian/$PKG_NAME/usr/bin"/* ../pack/
+cp "debian/$PKG_NAME/usr/lib/$PKG_NAME"/* ../pack/
+cp "$PROJECT_ROOT/LICENSE.txt" ../pack/
+cp -R data/* ../pack/
 
 
 cp -R build/"$ARCH"/* "$BUILD_OUT_DIR/"
@@ -190,12 +196,13 @@ cp -R "debian" "$BUILD_OUT_DIR/"
 
 cd ..
 #ls -la
-tar -czvf "$PACKED" qredshift libqredshift*
-cp "$PACKED" "$PROJECT_ROOT/bin/"
+
 cp "$OUT_DEB" "$PROJECT_ROOT/bin/"
 #mv qredshift*.{deb,changes,buildinfo,dsc,tar.xz} "$BIN_OUT_DIR/"
 
-
+cd pack
+tar -czvf "$PACKED" *
+cp "$PACKED" "$PROJECT_ROOT/bin/"
 
 
 

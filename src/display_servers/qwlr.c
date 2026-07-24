@@ -38,6 +38,7 @@ typedef struct {
 	double current_bright;
 	double current_gamma;
 	bool has_current;
+	int interpolation;
 } OutputState;
 
 typedef struct {
@@ -218,6 +219,14 @@ void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget
 			if (target->gamma > 0) eff_g = target->gamma;
 		}
 
+		if (os->has_current
+		    && os->interpolation == interpolation
+		    && os->current_kelvin == eff_k
+		    && os->current_bright == eff_b
+		    && os->current_gamma == eff_g) {
+			continue;
+		}
+
 		if (!os->gamma_control || !os->gamma_size_known || os->failed) continue;
 		if (os->gamma_size == 0) continue;
 
@@ -250,6 +259,7 @@ void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget
 		os->current_kelvin = eff_k;
 		os->current_bright = eff_b;
 		os->current_gamma = eff_g;
+		os->interpolation = interpolation;
 		os->has_current = true;
 	}
 

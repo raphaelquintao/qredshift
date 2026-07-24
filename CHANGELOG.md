@@ -17,17 +17,14 @@
   * Completely rewrite XCB backend to a fully async pipelined architecture
     batching all output_info, gamma reads, and gamma writes in a single
     sync round-trip for maximum performance.
-  * Reorganize source tree: core gamma ramps (core/qramps.c), separate
-    XCB (qxcb_randr.c) and Xlib (xlib_randr.c) backends, Wayland backend
-    (qwlr.c), CLI utilities (utils/qcli.c), and backend dispatchers
-    (backend_x11.c, backend_wayland.c).
   * Add man page (qredshift.1) and Bash completion script, installed via
     make install.
-  * Overhaul build system: per-architecture build/ and bin/ directories,
+  * Reorganize source tree.
+  * Redesigned build system: per-architecture build/ and bin/ directories,
     separate compilation of main binary and Wayland plugin, install and
     uninstall targets with configurable PREFIX.
-  * Improve Debian packaging: proper source format (3.0 quilt), compiler
-    hardening flags, dynamic metadata generation, lintian integration.
+  * Improve Debian packaging:  proper source format (3.0 quilt), full
+    Debian Policy-compliant packages, lintian integration.
   * Drop support for legacy architectures: armv5tel (armel), armv6l,
     mips/mipsel, and s390x.
 

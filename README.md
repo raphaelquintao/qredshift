@@ -1,27 +1,22 @@
-# QRedshift CLI
+# QRedshift
 
-A lightweight native Linux utility for adjusting display **color temperature**, **brightness**, and **gamma**. 
+QRedshift is a fast, stateless CLI tool for adjusting screen color temperature, brightness, and gamma on Linux. It reduces blue light and eye strain by shifting your display to warmer tones at night, and supports both X11 and Wayland compositors out of the box. Unlike traditional daemon-based tools, QRedshift operates in a one-shot stateless mode, applying changes instantly and exiting, with a ~40KB binary and zero runtime overhead. It features native multi-monitor per-display targeting, reverse gamma ramp reconstruction from the live display, and a Wayland plugin architecture that adds no dependency for X11 users. A modern replacement for redshift, sct, and gammastep.
 
-Originally developed as a Redshift replacement backend for the **QRedshift Cinnamon Applet**, it has since evolved into a standalone command-line application. 
-
-### Cinnamon Applet
-
-If you're looking for the Cinnamon applet, it has been moved to its own repository: [QRedshiftCinnamon](https://github.com/raphaelquintao/QRedshiftCinnamon).
+Originally created as the backend for the [QRedshiftCinnamon](https://github.com/raphaelquintao/QRedshiftCinnamon) applet, it has since evolved into a standalone multiplatform CLI tool.
 
 ## Features
 
-- [x] Native X11 support
-- [x] XCB backend (default)
-- [x] Xlib backend
-- 
-- [x] Per-monitor configuration
-- [x] Tiny executable (~40KB)
+- [x] X11 support (XCB + Xlib backends)
+- [x] Wayland support (wlr-gamma-control-unstable-v1)
+- [x] Multi-monitor per-display targeting
+- [x] Stateless one-shot operation (~40KB binary)
+- [x] Zero Wayland dependency for X11 users (shared library plugin)
+- [x] Reverse gamma ramp reconstruction from live display
 
 ## Planned
 
-- [ ] Wayland support (Not currently possible for Cinnamon/Muffin and Gnome/Mutter)
 - [ ] DDC/CI brightness control for supported displays
-- [ ] Native graphical interface
+- [ ] Native graphical interface (desktop-independent)
 
 #### Long-term Goals
 
@@ -44,7 +39,16 @@ Pre-built binaries and Debian packages are available on the [latest release](htt
   ```shell
   sudo dpkg -i qredshift_*.deb
   ```
-  
+
+### Arch Linux (AUR)
+
+A PKGBUILD is available in the `scripts/aur` directory. To build and install:
+
+```shell
+cd scripts
+makepkg -si
+```
+
 ### From Source
 
 #### Build and Install
@@ -53,14 +57,14 @@ First, install the required dependencies, then compile and install:
 
 ###### Debian
 ```shell
-sudo apt-get install libxrandr-dev libxcb1-dev libxcb-randr0-dev
+sudo apt-get install libxrandr-dev libxcb1-dev libxcb-randr0-dev libwayland-dev
 make
 sudo make install
 ```
 
 ###### Arch
 ```shell
-sudo pacman -Syu libxrandr libxcb xcb-util
+sudo pacman -Syu libxrandr libxcb xcb-util wayland
 make
 sudo make install
 ```
@@ -71,21 +75,22 @@ Basic: `qredshift -t [temperature in Kelvin] -b [bright] -g [gamma]`
 
 Reset: `qredshift -t`
 
-| Parameter |                        | Description                     |
-|-----------|------------------------|---------------------------------|
-| `-h`      |                        | Display this help               |
-| `-v`      |                        | Show program version            |
-| `-i`      |                        | Show display info               |
-| `-t`      | 6500                   | Temperature in kelvin           |
-| `-b`      | 1.0                    | Brightness from 0.1 to 1.0      |
-| `-g`      | 1.0                    | Gamma from 0.1 to 5.0           |
-| `-d`      | `0:t=4500:b=1.0:g=1.0` | Target display (repeatable)     |
-| `-xlib`   |                        | Use Xlib instead of XCB         |
-| `-interp` |                        | Use legacy interpolation method |
+| Parameter |                        | Description                      |
+|-----------|------------------------|----------------------------------|
+| `-h`      |                        | Display this help                |
+| `-v`      |                        | Show program version             |
+| `-i`      |                        | Show display info                |
+| `-t`      | 6500                   | Temperature in kelvin            |
+| `-b`      | 1.0                    | Brightness from 0.1 to 1.0       |
+| `-g`      | 1.0                    | Gamma from 0.1 to 5.0            |
+| `-d`      | `0:t=4500:b=1.0:g=1.0` | Target display (repeatable)      |
+| `-xlib`   |                        | Use Xlib instead of XCB          |
+| `-interp` |                        | Use legacy interpolation method  |
+| `-wd`     |                        | Start Wayland daemon (no values) |
 
 ### Per-Display
 
-`-t`, `-b`, and `-g` set global defaults. `-d` selects a specific display and optionally overrides those defaults for that display only. It can be repeated for multiple displays.
+`-t`, `-b`, and `-g` set global defaults. `-d` selects a specific display and optionally overrides those defaults for that display only. It can be repeated for multiple displays. Works on both X11 and Wayland.
 
 Display can be identified by index or by RandR name. Run `qredshift -i` to list available displays and their names.
 
@@ -99,7 +104,7 @@ qredshift -t 4500 -d 1
 # target one display by RandR name
 qredshift -t 4500 -d HDMI-1
 
-# per-display overrides — display 0 gets 6500K, display 1 gets 4500K at 80% brightness
+# per-display overrides - display 0 gets 6500K, display 1 gets 4500K at 80% brightness
 qredshift -t 6500 -d 1:t=4500:b=0.8
 
 # two displays, completely independent settings
@@ -110,6 +115,17 @@ qredshift -d 1
 ```
 
 Any parameter not specified in a `-d` block falls back to the global value. If no global is set either, the default applies.
+
+### Wayland
+
+On Wayland sessions, QRedshift runs as a lightweight background daemon. Start it with:
+
+```shell
+qredshift -wd      # start daemon without applying values
+qredshift -t 4500  # start daemon and set temperature
+```
+
+Subsequent invocations communicate through a FIFO pipe and return immediately.
 
 <details>
    <summary><b>Xlib and XCB</b></summary>
@@ -124,14 +140,14 @@ Any parameter not specified in a `-d` block falls back to the global value. If n
 
 ###### Debian
 ```shell
-sudo apt-get install libxrandr-dev libxcb1-dev libxcb-randr0-dev
+sudo apt-get install libxrandr-dev libxcb1-dev libxcb-randr0-dev libwayland-dev
 make
 ```
 
 ###### Arch
 
 ```shell
-sudo pacman -Syu libxrandr libxcb xcb-util
+sudo pacman -Syu libxrandr libxcb xcb-util wayland
 make
 ```
 
@@ -150,87 +166,10 @@ sudo pacman -Syu docker
 sudo make docker
 ```
 
-## Why I wrote QRedshift 
+## Related
 
-I originally created **QRedshift Cinnamon** in 2019 as a personal project to improve my own desktop experience. After using it daily for quite some time, I decided to publish it.
-
-To my surprise, it was embraced by the Cinnamon community, eventually becoming one of the most popular applets on Cinnamon Spices.
-
-Over the years the applet grew far beyond a simple "Night Light" toggle, becoming a complete display temperature management tool with features that **I personally missed on Linux**.
-
-As the project evolved, however, its original backend became the limiting factor.
-
-### Why Not Just Use Redshift?
-
-Redshift served the Linux community extremely well for many years, and this project would not exist without it.
-
-However, over time its architecture diverged from the goals I had for QRedshift.
-
-- The project had become effectively unmaintained.
-- It was officially archived on April 1st, 2026. [^1]
-- It still relied on legacy components such as GeoClue.
-- Its architecture was built around a continuously running daemon.
-- **The applet only required one thing**: change the display gamma ramps as quickly and reliably as possible.
-
-Since the core functionality was relatively straightforward, I decided to write a dedicated backend instead of continuing to depend on Redshift.
-
-## Differences from Redshift
-
-QRedshift is **not** a fork of Redshift.
-
-It is a completely independent implementation built around a different philosophy.
-
-The goal isn't to replace every feature Redshift ever had.
-
-The goal is to provide a lightweight, focused utility for applications that only need to manipulate display gamma.
-
-### Stateless One-Shot Operation
-
-Instead of running a permanent background daemon that continuously monitors time and manages state, QRedshift takes a stateless, **one-shot operation** approach.
-
-When triggered, the application calculates the desired gamma ramps, applies them immediately to the X display, and exits instantly. This architecture makes the backend incredibly lightweight, blazing fast, and virtually dependency-free, relying only on native system libraries.
-
-### Gamma Ramps Calculation
-
-I also changed the default gamma ramps calculation method.
-
-**Original Redshift** uses an interpolated RGB lookup table based on Mitchell Charity's work (revised by Ingo Thies) [^2].
-
-**QRedshift** uses an algorithmic implementation based on the same research, using Tanner Helland's work as a starting point [^3]. To reduce approximation error, I tuned the polynomial coefficients to better match Redshift's interpolated reference. In practice, the resulting gamma curves are very close to the lookup-table approach for normal use.
-
-This became the default implementation in QRedshift, while the original interpolation method remains available through the `-interp` option.
-
-
-<details>
-   <summary><b>Was this really necessary?</b></summary>
-
-Probably not.
-
-The lookup table is already fast, tiny, and perfectly adequate for modern hardware. The performance difference is effectively irrelevant.
-
-I simply prefer an algorithmic solution when it can produce comparable results. It removes the dependency on precomputed tables and keeps the implementation more self-contained.
-
-Sometimes isn't about making software noticeably faster. It's about making the implementation a little more elegant, even if nobody will ever notice.
-
-</details>
-
-### Reverse Gamma Reconstruction
-
-Applying gamma ramps is relatively simple.
-
-Recovering the original parameters is not.
-
-Because QRedshift exits immediately after applying changes, there is no process left running that remembers the previous values.
-
-If a user later requests a relative adjustment or simply wants to know the current settings, the application has no stored state to query.
-
-Rather than introducing configuration files or a resident daemon, I chose a different approach.
-
-QRedshift reads the active hardware gamma ramps directly from the X server and mathematically reconstructs the parameters that produced them.
-
-A custom **reverse gamma ramp reconstruction algorithm** estimates the original `-t [temperature]`, `-b [brightness]`, and `-g [gamma]`, allowing QRedshift to determine its current operating state entirely from the live display.
-
-This preserves the stateless architecture while enabling operations that would normally require persistent state.
+- [QRedshiftCinnamon](https://github.com/raphaelquintao/QRedshiftCinnamon) - Cinnamon applet that uses qredshift as its backend
+- [docs/ABOUT.md](docs/ABOUT.md) - Project history, design philosophy, and comparison with Redshift
 
 ## Support the Project
 
@@ -249,10 +188,3 @@ A ⭐ on GitHub, a bug report, a feature suggestion, or simply recommending QRed
 Every contribution, no matter how small, helps keep the project alive.
 
 Thank you.
-
-
-[^1]: Original Redshift Repository: https://github.com/jonls/redshift
-
-[^2]: From Redshift: [README-colorramp](https://github.com/jonls/redshift/blob/master/README-colorramp)
-
-[^3]: [How to Convert Temperature (K) to RGB: Algorithm and Sample Code](https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html)
