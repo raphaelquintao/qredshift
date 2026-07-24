@@ -1,4 +1,9 @@
-// ReSharper disable CppDFAMemoryLeak
+/*
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include "qxcb_randr.h"
 #include <math.h>
 #include <stdint.h>

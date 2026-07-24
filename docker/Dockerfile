@@ -22,5 +22,5 @@ debhelper \
 dpkg-dev \
 git \
 lintian \
-libxrandr-dev:* libxcb1-dev:* libxcb-randr0-dev:* \
+libxrandr-dev:* libxcb1-dev:* libxcb-randr0-dev:* libwayland-dev:* \
 && rm -rf /var/lib/apt/lists/*

@@ -1,5 +1,8 @@
-// Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "backend_x11.h"
 #include <stdio.h>
@@ -11,6 +14,7 @@
 #include "utils/qcli.h"
 #include "utils/x11_utils.h"
 
+
 enum {
 	P_HELP = 0,
 	P_VERSION,
@@ -21,50 +25,9 @@ enum {
 	P_GAMMA,
 	P_DISPLAY,
 	P_SEP2,
-	P_XLIB,
 	P_INTERP,
+	P_XLIB,
 };
-
-
-void parse_args(int argc, char *argv[], int params_size, PARAM *params) {
-	for (int c = 0; c < params_size; c++) {
-		if (strcmp(params[c].name, "") == 0) continue;
-		for (int i = 1; i < argc; i++) {
-			if (strcmp(argv[i], params[c].name) == 0) {
-				params[c].exists = 1;
-				if (i + 1 < argc) {
-					params[c].value = argv[i + 1];
-					i++;
-				}
-			}
-		}
-	}
-}
-
-void parse_display_target(const char *arg, DisplayTarget *target) {
-	target->kelvin = -1;
-	target->bright = -1.0;
-	target->gamma = -1.0;
-	target->id[0] = '\0';
-
-	char buf[256];
-	strncpy(buf, arg, sizeof(buf) - 1);
-	buf[sizeof(buf) - 1] = '\0';
-
-	char *token = strtok(buf, ":");
-	if (!token) return;
-	strncpy(target->id, token, sizeof(target->id) - 1);
-	target->id[sizeof(target->id) - 1] = '\0';
-
-	while ((token = strtok(NULL, ":")) != NULL) {
-		if (strncmp(token, "t=", 2) == 0)
-			target->kelvin = clamp_int(atoi(token + 2), 1000, 25000);
-		else if (strncmp(token, "b=", 2) == 0)
-			target->bright = clamp_float(atof(token + 2), 0.1, 1.0);
-		else if (strncmp(token, "g=", 2) == 0)
-			target->gamma = clamp_float(atof(token + 2), 0.1, 5.0);
-	}
-}
 
 int x11_backend(int argc, char *argv[]) {
 
@@ -73,13 +36,13 @@ int x11_backend(int argc, char *argv[]) {
 		{"-v", "Show program version", "", 0},
 		{"-i", "Show display info", "", 0},
 		{"", "", "", 0},
-		{"-t", "Temperature in kelvin 1000 to 25000", "6500", 0},
-		{"-b", "Brightness from 0.1 to 1.0", "1.0", 0},
-		{"-g", "Gamma from 0.1 to 5.0", "1.0", 0},
+		{"-t", "Temperature in kelvin from " TOSTRING(MIN_KELVIN) " to " TOSTRING(MAX_KELVIN), TOSTRING(DEF_KELVIN), 0},
+		{"-b", "Brightness from " TOSTRING(MIN_BRIGHT) " to " TOSTRING(MAX_BRIGHT), TOSTRING(DEF_BRIGHT), 0},
+		{"-g", "Gamma from " TOSTRING(MIN_GAMMA) " to " TOSTRING(MAX_GAMMA), TOSTRING(DEF_GAMMA), 0},
 		{"-d", "Target display (repeatable)", "<id[:t=K][:b=B][:g=G]>", 0},
 		{"", "", "", 0},
-		{"-xlib", "Use Xlib instead of XCB", "", 0},
 		{"-interp", "Use interpolation method", "", 0},
+		{"-xlib", "Use Xlib instead of XCB", "", 0},
 	};
 
 	const int params_size = sizeof(params) / sizeof(PARAM);
@@ -120,17 +83,17 @@ int x11_backend(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	int kelvin = atoi(params[P_TEMP].value);
-	double bright = atof(params[P_BRIGHT].value);
-	double gamma = atof(params[P_GAMMA].value);
+	int kelvin = qatoi(params[P_TEMP].value, DEF_KELVIN);
+	double bright = qatof(params[P_BRIGHT].value, DEF_BRIGHT);
+	double gamma = qatof(params[P_GAMMA].value, DEF_GAMMA);
 
-	kelvin = clamp_int(kelvin, 1000, 25000);
-	bright = clamp_float(bright, 0.1, 1.0);
-	gamma = clamp_float(gamma, 0.1, 5.0);
+	kelvin = clamp_int(kelvin, MIN_KELVIN, MAX_KELVIN);
+	bright = clamp_float(bright, MIN_BRIGHT, MAX_BRIGHT);
+	gamma = clamp_float(gamma, MIN_GAMMA, MAX_GAMMA);
 
-	DisplayTarget targets[16];
+	DisplayTarget targets[MAX_TARGETS];
 	int num_targets = 0;
-	for (int i = 1; i < argc && num_targets < 16; i++) {
+	for (int i = 1; i < argc && num_targets < MAX_TARGETS; i++) {
 		if (strcmp(argv[i], "-d") == 0 && i + 1 < argc) {
 			parse_display_target(argv[++i], &targets[num_targets++]);
 		}

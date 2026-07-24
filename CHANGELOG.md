@@ -1,12 +1,35 @@
 # Changelog
 
-* 1.0
-  * Streamline build pipeline and drop support for legacy architectures:
-    - Drop armv5tel (armel), armv6l, and mips/mipsel because they lack
-      support for modern GUI environments (GNOME/KDE Plasma) and are
-      unsupported in upcoming Debian distributions.
-    - Drop s390x as it is an enterprise IBM mainframe server architecture
-      and does not run interactive X11 graphical desktop environments.
+* 1.0.0
+  * Native multi-monitor support: target individual displays by index or
+    RandR output name with per-display temperature, brightness, and gamma
+    overrides via the -d flag. Works across all backends (XCB, Xlib,
+    Wayland). One of the most requested features.
+  * Add Wayland support via wlr-gamma-control-unstable-v1 protocol.
+  * Compile Wayland backend as shared library (libqredshift_wayland_1.0.0.so),
+    loaded at runtime via dlopen() only when a Wayland session is detected.
+    X11 users do not need libwayland-client installed.
+  * Implement Wayland daemon with FIFO-based IPC and new -wd flag to start
+    the daemon without applying initial values.
+  * Only update displays whose gamma ramps actually changed: skip writes when
+    the current ramp matches the desired values, across both X11 and Wayland
+    backends.
+  * Completely rewrite XCB backend to a fully async pipelined architecture
+    batching all output_info, gamma reads, and gamma writes in a single
+    sync round-trip for maximum performance.
+  * Reorganize source tree: core gamma ramps (core/qramps.c), separate
+    XCB (qxcb_randr.c) and Xlib (xlib_randr.c) backends, Wayland backend
+    (qwlr.c), CLI utilities (utils/qcli.c), and backend dispatchers
+    (backend_x11.c, backend_wayland.c).
+  * Add man page (qredshift.1) and Bash completion script, installed via
+    make install.
+  * Overhaul build system: per-architecture build/ and bin/ directories,
+    separate compilation of main binary and Wayland plugin, install and
+    uninstall targets with configurable PREFIX.
+  * Improve Debian packaging: proper source format (3.0 quilt), compiler
+    hardening flags, dynamic metadata generation, lintian integration.
+  * Drop support for legacy architectures: armv5tel (armel), armv6l,
+    mips/mipsel, and s390x.
 
 * 0.13
   * Add the `-interp` option to use the legacy Redshift-style interpolated gamma ramp calculation.

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #pragma once
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>

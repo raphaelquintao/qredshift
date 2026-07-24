@@ -1,17 +1,14 @@
 /*
- * Copyright (c) 2026 - Raphael Quintao <raphaelquintao@gmail.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "x11_utils.h"
 #include <stdlib.h>
 #include <string.h>
-
+#include "qcli.h"
+#include "../globals.h"
 
 DisplayTarget *find_target(DisplayTarget *targets, int num_targets, int output_id, const char *name) {
 	if (num_targets <= 0) return NULL;
@@ -34,4 +31,32 @@ DisplayTarget *find_target(DisplayTarget *targets, int num_targets, int output_i
 		}
 	}
 	return NULL;
+}
+
+// Parses a "-d" argument of the form "<id>[:t=K][:b=B][:g=G]" into a
+// DisplayTarget. Unspecified fields are left at their "unset" sentinel
+// values (-1 / -1.0) so callers can fall back to the global setting.
+void parse_display_target(const char *arg, DisplayTarget *target) {
+	target->kelvin = -1;
+	target->bright = -1.0;
+	target->gamma = -1.0;
+	target->id[0] = '\0';
+
+	char buf[256];
+	strncpy(buf, arg, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+
+	char *token = strtok(buf, ":");
+	if (!token) return;
+	strncpy(target->id, token, sizeof(target->id) - 1);
+	target->id[sizeof(target->id) - 1] = '\0';
+
+	while ((token = strtok(NULL, ":")) != NULL) {
+		if (strncmp(token, "t=", 2) == 0)
+			target->kelvin = clamp_int(qatoi(token + 2, -1), MIN_KELVIN, MAX_KELVIN);
+		else if (strncmp(token, "b=", 2) == 0)
+			target->bright = clamp_float(qatof(token + 2, -1.0), MIN_BRIGHT, MAX_BRIGHT);
+		else if (strncmp(token, "g=", 2) == 0)
+			target->gamma = clamp_float(qatof(token + 2, -1.0), MIN_GAMMA, MAX_GAMMA);
+	}
 }

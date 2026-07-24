@@ -1,7 +1,13 @@
-// Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "qcli.h"
+#include <errno.h>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +43,41 @@ double clamp_float(double value, double min, double max) {
 	return (value < min) ? min : ((value > max) ? max : value);
 }
 
+int qatoi(const char *__nptr, const int _def) {
+	if (__nptr == NULL) return _def;
+
+	int saved_errno = errno;
+	errno = 0;
+	char *endptr;
+	long val = strtol(__nptr, &endptr, 10);
+
+	if (errno || endptr == __nptr || val < INT_MIN || val > INT_MAX) {
+		errno = saved_errno;
+		return _def;
+	}
+
+	errno = saved_errno;
+	return (int)val;
+}
+
+double qatof(const char *__nptr, double _def) {
+	if (__nptr == NULL) return _def;
+
+	int saved_errno = errno;
+	errno = 0;
+	char *endptr;
+	double val = strtod(__nptr, &endptr);
+
+	if (errno || endptr == __nptr || isinf(val) || isnan(val)) {
+		errno = saved_errno;
+		return _def;
+	}
+
+	errno = saved_errno;
+	return val;
+}
+
+
 void print_help(int params_size, PARAM *params, FILE *stream) {
 	fprintf(stream, "Usage: %s -t [temperature in Kelvin] -b [bright] -g [gamma]\n\n", APP_NAME);
 	for (int c = 0; c < params_size; c++) {
@@ -46,5 +87,20 @@ void print_help(int params_size, PARAM *params, FILE *stream) {
 			fprintf(stream, "  %-7s %19s %s\n", params[c].name, params[c].value, params[c].desc);
 		else
 			fprintf(stream, "  %-3s %-23s %s\n", params[c].name, params[c].value, params[c].desc);
+	}
+}
+
+void parse_args(int argc, char *argv[], int params_size, PARAM *params) {
+	for (int c = 0; c < params_size; c++) {
+		if (strcmp(params[c].name, "") == 0) continue;
+		for (int i = 1; i < argc; i++) {
+			if (strcmp(argv[i], params[c].name) == 0) {
+				params[c].exists = 1;
+				if (i + 1 < argc) {
+					params[c].value = argv[i + 1];
+					i++;
+				}
+			}
+		}
 	}
 }

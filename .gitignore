@@ -1,5 +1,6 @@
 .idea
-_wayland
+_tools
 cmake-build-debug
 build
+bin
 

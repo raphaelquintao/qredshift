@@ -28,7 +28,7 @@ jobs:
 
       - name: Build binaries and DEBs
         run: |
-          docker run -v $(pwd):/qredshift qredshift-cross sh -c "make x86_64 i686 aarch64 armv7l armv5tel mips64el mipsel powerpc64le s390x debs"
+          docker run -v $(pwd):/qredshift qredshift-cross sh -c "makes debs"
       - name: Create Release
         uses: softprops/action-gh-release@v3.0.1
         with:

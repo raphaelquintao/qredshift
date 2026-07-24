@@ -1,5 +1,8 @@
-// Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * Copyright (c) 2026 Raphael Quintao <raphaelquintao@gmail.com>
+ * This file is part of qredshift.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include "qramps.h"
 #include <math.h>
@@ -312,14 +315,6 @@ RGB kelvin_to_rgb(double kelvin) {
 		g = 1.12989 * pow(g, -0.07630);
 		b = 1.0;
 	}
-
-	//    printf("R:%f G:%f B:%f\n", r, g, b);
-
-	//    RGB *color = malloc(sizeof(RGB));
-	//    color->r = fmin(fmax(r, 0.0), 1.0);
-	//    color->g = fmin(fmax(g, 0.0), 1.0);
-	//    color->b = fmin(fmax(b, 0.0), 1.0);
-
 
 	color.r = fmin(fmax(r, 0.0), 1.0);
 	color.g = fmin(fmax(g, 0.0), 1.0);

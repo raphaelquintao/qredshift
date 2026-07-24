@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#pragma once
+#include "globals.h"
 
-int wayland_backend(int argc, char *argv[]);
+const char *APP_NAME = NAME;
+const char *APP_VERSION = VERSION;
+
+int Q_VERBOSE = 0;
