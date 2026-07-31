@@ -43,26 +43,14 @@ jobs:
           name: raw-dist
           path: dist/
           # Disables internal Zlib file packing entirely
-          compression-level: 0 
-          
-      - name: Test
-        run: | 
-          ls -la
 
-#      - name: Build Cross-Compilation Container
-#        run: make docker-image
-#
-#      - name: Cross-Compile Binaries and Linux Packages
-#        run: |
-#          docker run --rm -v $(pwd):/qredshift  -u "$(id -u):$(id -g)" qredshift-cross:latest make debs
-#
-#      # Points directly to 'bin/' matching your output files tree structure
-#      - name: Create and Upload Draft Release Assets
-#        uses: softprops/action-gh-release@v2
-#        with:
-#          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-#          generate_release_notes: true
-#          draft: true
-#          files: |
-#            bin/*.deb
-#            bin/*.tar.gz
+     # Points directly to 'bin/' matching your output files tree structure
+      - name: Create and Upload Draft Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+          generate_release_notes: true
+          draft: true
+          files: |
+            dist/**/qredshift_*.deb
+            dist/**/qredshift_*.tar.gz
