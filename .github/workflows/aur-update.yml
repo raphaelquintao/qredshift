@@ -2,8 +2,8 @@ name: Update AUR Package
 
 on:
   release:
-    types: [published] # Triggers automatically when a release transitions out of draft
-  workflow_dispatch: # Allows manual trigger from the Actions tab button
+    types: [published]
+  workflow_dispatch:
     inputs:
       tag_name:
         description: "Tag name to fetch assets and update (example: v1.0.0)"
@@ -17,26 +17,33 @@ jobs:
   update-aur-manifest:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
+      image: archlinux:latest
 
     steps:
+      - name: Install Missing Automation Utilities inside Arch
+        shell: bash
+        run: |
+          pacman -Syu --noconfirm openssh git curl sed awk pacman-contrib
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          # If manual, use the main/default branch; if automated, use the release target commit
+          # Fix: Fetch everything so git knows how to merge HEAD properly
+          fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.event.release.target_commitish }}
+
+      - name: Trust Git Directory Ownership
+        shell: bash
+        run: |
+          git config --global --add safe.directory /__w/qredshift/qredshift
 
       - name: Download Built Tarballs from Release
         shell: bash
         run: |
-          # 1. Fallback logic for tag name selection
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG_NAME="${{ inputs.tag_name }}"
-            # Construct standard release asset base URL for manual run
-            RELEASE_URL="https://github.com{{ github.repository }}/releases/tag/${TAG_NAME}"
           else
             TAG_NAME="${{ github.event.release.tag_name }}"
-            RELEASE_URL="${{ github.event.release.html_url }}"
           fi
 
           VERSION="${TAG_NAME#v}"
@@ -45,9 +52,7 @@ jobs:
           
           for SUFFIX in x86_64 i686 aarch64 armv7l powerpc64le riscv64; do
             FILE_NAME="qredshift_${VERSION}_${SUFFIX}.tar.gz"
-            # Formats download link cleanly to target specific tags directly
             URL="https://github.com{{ github.repository }}/releases/download/${TAG_NAME}/${FILE_NAME}"
-            
             echo "Fetching asset from: $URL"
             curl -L -O -s --fail "$URL" || echo "Warning: Could not fetch $FILE_NAME"
           done
@@ -82,7 +87,13 @@ jobs:
             fi
           done
 
-      - name: Commit and Push Updated PKGBUILD
+      - name: Generate Fresh .SRCINFO for Arch Linux
+        shell: bash
+        run: |
+          cd scripts/aur
+          makepkg --printsrcinfo > .SRCINFO
+
+      - name: Commit and Push Changes Back to GitHub
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -96,7 +107,36 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@://github.com"
           
-          git add scripts/aur/PKGBUILD
-          git commit -m "chore(aur): auto-update PKGBUILD hashes for release ${TAG_NAME}" || echo "No changes to commit"
+          git add scripts/aur/PKGBUILD scripts/aur/.SRCINFO
+          git commit -m "chore(aur): auto-update PKGBUILD & .SRCINFO for release ${TAG_NAME}" || echo "No changes to commit"
           
-          git push origin HEAD:${TARGET_BRANCH}
+          # Fix: Pushes securely back to the tracking upstream branch branch tip
+          git push origin HEAD:refs/heads/${TARGET_BRANCH}
+
+      - name: Publish Automatically directly to the AUR Server
+        shell: bash
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/id_aur
+          chmod 600 ~/.ssh/id_aur
+          
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/id_aur -o UserKnownHostsFile=~/.ssh/known_hosts"
+          
+          mkdir -p /tmp/aur-repo
+          cd /tmp/aur-repo
+          
+          git clone ssh://aur@aur.archlinux.org/qredshift.git .
+          
+          cp /__w/qredshift/qredshift/scripts/aur/PKGBUILD .
+          cp /__w/qredshift/qredshift/scripts/aur/.SRCINFO .
+          
+          git config user.name "Raphael Quintao"
+          git config user.email "raphaelquintao@gmail.com"
+          
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to version ${{ github.event.release.tag_name || inputs.tag_name }}" || echo "No changes to publish"
+          git push origin master
