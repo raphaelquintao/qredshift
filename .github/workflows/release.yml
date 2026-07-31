@@ -18,10 +18,18 @@ jobs:
 
     container:
       image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --user q
       volumes:
         - ${{ github.workspace }}:/home/q/qredshift
       env:
-        GPG_PRIVATE_KEY: ${{secrets.GPG_PRIVATE_KEY}}
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+
+    defaults:
+      run:
+        working-directory: /home/q/qredshift
 
     steps:
       - name: Checkout Source Code
@@ -29,6 +37,10 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
+          path: /home/q/qredshift
+
+      - name: Fix Directory Ownership
+        run: sudo chown -R q:q /home/q/qredshift
 
       - name: Update compiler toolchains
         run: |
