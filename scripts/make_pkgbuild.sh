@@ -4,10 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -e
+qecho() { printf "\e[%sm%b\e[0m" "$2" "$1"; }
 
+VERSION="${1}"
 
-VERSION="1.0.0"
+if [[ -z "${VERSION}" ]]; then
+  echo "Error: Version Empty."
+  exit 1
+fi
 
+qecho "Building AUR Manifest for: $VERSION\n" "1;35"
 
 PKGBUILD=$(cat << EOF
 # Maintainer: Raphael Quintao <raphaelquintao@gmail.com>

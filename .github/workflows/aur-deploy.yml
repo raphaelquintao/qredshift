@@ -20,10 +20,16 @@ jobs:
       image: archlinux:latest
 
     steps:
+      - name: Install Missing Automation Utilities inside Arch
+        shell: bash
+        run: |
+          pacman -Syu --noconfirm openssh git curl sed awk pacman-contrib
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Provision Non-Root Environment & Run
+        shell: bash
         env:
           AUR_SSH_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
         run: |
@@ -40,15 +46,17 @@ jobs:
           echo "$AUR_SSH_KEY" > /home/builder/.ssh/id_ed25519
           chmod 700 /home/builder/.ssh
           chmod 600 /home/builder/.ssh/id_ed25519
-          
+                    
           # 4. Pre-approve AUR (aur.archlinux.org) SSH host key fingerprint
           ssh-keyscan aur.archlinux.org >> /home/builder/.ssh/known_hosts
           
           # 5. Fix permissions so the 'builder' user owns its home and workspace
           chown -R builder:builder /home/builder/.ssh
           chown -R builder:builder $GITHUB_WORKSPACE
-          
-          # 6. Execute your script cleanly as the non-root 'builder'
+
+      - name: Process Version and Run Script
+        shell: bash
+        run: | 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG_NAME="${{ inputs.tag_name }}"
           else
@@ -56,6 +64,24 @@ jobs:
           fi
           
           VERSION="${TAG_NAME#v}"
-          echo "Version:$VERSION"
-          # chmod +x ./my-script.sh
-          su builder -c "whoami"
+          echo "Version: $VERSION"
+          chmod +x ./scripts/make_pkgbuild.sh
+          su builder -c "./scripts/make_pkgbuild.sh \"$VERSION\""
+
+      - name: Publish Automatically directly to the AUR Server
+        shell: bash
+        run: |
+          mkdir -p aur-repo
+          cd aur-repo
+          
+          git clone ssh://aur@aur.archlinux.org/qredshift.git .
+          
+          cp ../aur/PKGBUILD .
+          cp ../aur/.SRCINFO .
+          
+          git config user.name "Raphael Quintao"
+          git config user.email "raphaelquintao@gmail.com"
+          
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to version ${{ github.event.release.tag_name || inputs.tag_name }}" || echo "No changes to publish"
+          git push origin master
