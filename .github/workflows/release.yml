@@ -54,3 +54,51 @@ jobs:
           files: |
             dist/**/qredshift_*.deb
             dist/**/qredshift_*.tar.gz
+
+      - name: Update PKGBUILD Version and SHA256 Hashes
+        run: |
+          # 1. Clean the tag name to extract just the pure version number (e.g., v1.0.0 -> 1.0.0)
+          TAG_NAME="${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}"
+          VERSION="${TAG_NAME#v}"
+          TARGET_PKGBUILD="scripts/aur/PKGBUILD"
+          
+          # 2. Automatically update version strings inside your script subdirectory
+          sed -i "s/pkgver=.*/pkgver=$VERSION/" "$TARGET_PKGBUILD"
+          sed -i "s/_pkgver=.*/_pkgver=$VERSION/" "$TARGET_PKGBUILD"
+          
+          # 3. Define mapping matching your compiled outputs to Arch architectures
+          declare -A ARCH_MAP=(
+            ["x86_64"]="x86_64"
+            ["i686"]="i686"
+            ["aarch64"]="aarch64"
+            ["armv7h"]="armv7l"
+            ["ppc64le"]="powerpc64le"
+            ["riscv64"]="riscv64"
+          )
+          
+          # 4. Loop through each architecture, find the file, compute real SHA, and overwrite 'SKIP'
+          for ARCH in "${!ARCH_MAP[@]}"; do
+            SUFFIX="${ARCH_MAP[$ARCH]}"
+            
+            # Find the generated tar.gz inside your dist tree structure
+            FILE_PATH=$(find dist/ -type f -name "qredshift_${VERSION}_${SUFFIX}.tar.gz" | head -n 1)
+            
+            if [ -f "$FILE_PATH" ]; then
+              # Calculate the hash string natively
+              COMPUTED_HASH=$(sha256sum "$FILE_PATH" | awk '{print $1}')
+              echo "Calculated $ARCH hash: $COMPUTED_HASH"
+              
+              # Replace the single-quoted SKIP with the live cryptographic hash
+              sed -i "s/sha256sums_${ARCH}=('SKIP')/sha256sums_${ARCH}=('${COMPUTED_HASH}')/" "$TARGET_PKGBUILD"
+            else
+              echo "Warning: Could not find build target for $ARCH at suffix $SUFFIX"
+            fi
+          done
+
+      - name: Commit Updated PKGBUILD back to Repository
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          git add scripts/aur/PKGBUILD
+          git commit -m "chore: auto-update AUR PKGBUILD to ${VERSION} hashes" || echo "No changes to commit"
+          git push origin HEAD:${{ github.ref }}
