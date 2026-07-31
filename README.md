@@ -32,7 +32,7 @@ Modern desktop workflows with dynamic display hotplugging, multi-GPU setups, and
 * **Asynchronous XCB Engine:** Replaces 2010-era synchronous XCB calls with a modern asynchronous pipelined engine.
 * **Named Output Control:** Seamlessly target individual monitors by name (`eDP-1`, `DP-2`) with custom per-display temperature and brightness curves.
 
-👉 **[Deep dive into the architecture and X11 engine fixes in ABOUT.md](docs/ABOUT.md)**
+📖 **[Deep dive into the architecture and X11 engine fixes in ABOUT.md](docs/ABOUT.md)**
 
 ## Installation
 
