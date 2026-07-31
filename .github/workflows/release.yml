@@ -18,9 +18,6 @@ jobs:
 
     container:
       image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
     
