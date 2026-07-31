@@ -35,7 +35,7 @@ jobs:
 
       - name: Run Build
         run: |
-          make debs
+          make .debs
 
       - name: Save Build Output (Raw Files)
         uses: actions/upload-artifact@v4
