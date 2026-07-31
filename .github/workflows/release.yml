@@ -21,7 +21,7 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user q
+      options: --user root
       volumes:
         - ${{ github.workspace }}:/home/q/qredshift
       env:
@@ -48,7 +48,8 @@ jobs:
           sudo apt-get upgrade -y --no-install-recommends
 
       - name: Test
-        run: ls -la
+        run: | 
+          sudo -u q env "PATH=$PATH" "HOME=/home/q" ls -la
 
 #      - name: Build Cross-Compilation Container
 #        run: make docker-image
