@@ -33,11 +33,18 @@ jobs:
           apt-get update
           apt-get upgrade -y --no-install-recommends
 
-      - name: Update compiler toolchains
+      - name: Run Build
         run: |
-          sudo apt-get update
-          sudo apt-get upgrade -y --no-install-recommends
+          make debs
 
+      - name: Save Build Output (Raw Files)
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-dist
+          path: dist/
+          # Disables internal Zlib file packing entirely
+          compression-level: 0 
+          
       - name: Test
         run: | 
           ls -la
