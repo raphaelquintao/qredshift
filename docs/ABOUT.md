@@ -61,7 +61,7 @@ When list indices shift, legacy tools apply your color profiles to the wrong scr
 
 ### Legacy Synchronous XCB Implementation
 
-Dating back to the earliest releases of Redshift, the X11 engine was ported from Xlib to XCB by swapping function calls, but keeping Xlib’s old synchronous, blocking pattern. Major derivative tools inherited this code without inspecting how it worked under the hood.
+Dating back to the earliest releases of Redshift, the X11 engine was probaly ported from Xlib to XCB, but keeping Xlib’s old synchronous, blocking pattern. Major derivative tools inherited this code without inspecting how it worked under the hood.
 
 Instead of taking advantage of XCB's asynchronous processing, legacy code issues serial, blocking request-reply round-trips for every display (calling `xcb_randr_get_crtc_gamma_reply` immediately after each request). On multi-monitor setups, the tool stalls on every display sequentially, multiplying latency.
 
