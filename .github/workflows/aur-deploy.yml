@@ -1,0 +1,61 @@
+name: AUR Package Deployment
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag name to fetch assets and update (example: v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  aur-job:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Provision Non-Root Environment & Run
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          # 1. Initialize keyring and install essentials (openssh is required for AUR)
+          pacman-key --init && pacman-key --populate archlinux
+          pacman -Syu --noconfirm --needed sudo binutils fakeroot openssh
+          
+          # 2. Match GitHub Runner UID (1001) to prevent repository permission bugs
+          useradd -m -u 1001 -s /bin/bash builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          
+          # 3. Securely deploy the SSH Private Key to the builder's home folder
+          mkdir -p /home/builder/.ssh
+          echo "$AUR_SSH_KEY" > /home/builder/.ssh/id_ed25519
+          chmod 700 /home/builder/.ssh
+          chmod 600 /home/builder/.ssh/id_ed25519
+          
+          # 4. Pre-approve AUR (aur.archlinux.org) SSH host key fingerprint
+          ssh-keyscan aur.archlinux.org >> /home/builder/.ssh/known_hosts
+          
+          # 5. Fix permissions so the 'builder' user owns its home and workspace
+          chown -R builder:builder /home/builder/.ssh
+          chown -R builder:builder $GITHUB_WORKSPACE
+          
+          # 6. Execute your script cleanly as the non-root 'builder'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+          
+          VERSION="${TAG_NAME#v}"
+          echo "Version:$VERSION"
+          # chmod +x ./my-script.sh
+          su builder -c "whoami"
