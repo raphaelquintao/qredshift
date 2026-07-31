@@ -9,7 +9,6 @@ Designed for instant execution, qredshift operates entirely statelessly on X11, 
 
 > **Component Disambiguation:** This repository contains the standalone C command-line tool (`qredshift`). If you are looking for the desktop panel widget for the Cinnamon desktop environment, refer to [QRedshiftCinnamon](https://github.com/raphaelquintao/QRedshiftCinnamon).
 
----
 
 ## Key Features
 
