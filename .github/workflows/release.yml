@@ -19,7 +19,7 @@ jobs:
     container:
       image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
       volumes:
-        - $(pwd):/home/q/qredshift
+        - ${{ github.workspace }}:/home/q/qredshift
       env:
         GPG_PRIVATE_KEY: ${{secrets.GPG_PRIVATE_KEY}}
 
