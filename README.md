@@ -2,6 +2,8 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/raphaelquintao/qredshift?include_prereleases&display_name=release&logo=github)](https://github.com/raphaelquintao/qredshift/releases/latest)
 [![AUR Version](https://img.shields.io/aur/version/qredshift?style=flat&logo=archlinux&logoColor=white&logoSize=auto)](#arch-linux)
+[![GitHub Release](https://img.shields.io/github/downloads/raphaelquintao/qredshift/total?labelColor=hsl(210,2%,25%)&color=hsl(20,74%,40%))](https://github.com/raphaelquintao/qredshift/releases/latest)
+
 
 **QRedshift** is a stateless, high-performance, modern cross-display-server command-line utility written in C99 for adjusting screen color temperature, brightness, and gamma on Linux. Suporting both **X11** and **Wayland** with an ultra-lean **~40KB footprint**.
 
@@ -18,7 +20,7 @@ Designed for instant execution, qredshift operates entirely statelessly on X11, 
 * **Zero Overhead on X11:** Wayland backend is loaded dynamically at runtime via `dlopen()`. Pure X11 setups require no `libwayland-client` dependencies.
 * **Stateless & Instant:** Operates with zero persistent background presence on X11, applying modifications instantly and exiting.
 * **Wayland Daemon:** Features a minimal FIFO-based IPC daemon (`-wd`) necessary to satisfy Wayland's state-retention protocol requirements.
-* **Minimal Footprint:** ~40KiB binary + ~50KiB for wayland plugin
+* **Minimal Footprint:** **~40KiB** binary + **~50KiB** for Wayland plugin
 
 ## Why QRedshift?
 
