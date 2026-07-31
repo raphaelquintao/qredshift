@@ -20,6 +20,7 @@ Designed for instant execution, qredshift operates entirely statelessly on X11, 
 * **Zero Overhead on X11:** Wayland backend is loaded dynamically at runtime via `dlopen()`. Pure X11 setups require no `libwayland-client` dependencies.
 * **Stateless & Instant:** Operates with zero persistent background presence on X11, applying modifications instantly and exiting.
 * **Wayland Daemon:** Features a minimal FIFO-based IPC daemon (`-wd`) necessary to satisfy Wayland's state-retention protocol requirements.
+* **Real-Time Tab Completion:** Bash completions that query active display outputs (eDP-1, HDMI-A-1) live when you hit <kbd>TAB</kbd>.
 * **Minimal Footprint:** **~40KiB** binary + **~50KiB** for Wayland plugin
 
 ## Why QRedshift?
