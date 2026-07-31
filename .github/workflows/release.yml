@@ -21,26 +21,20 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --user root
-      volumes:
-        - ${{ github.workspace }}:/home/q/qredshift
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-
-    defaults:
-      run:
-        working-directory: /home/q/qredshift
-
+    
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
-          path: /home/q/qredshift
 
-      - name: Fix Directory Ownership
-        run: sudo chown -R q:q /home/q/qredshift
+      - name: Update compiler toolchains
+        run: |
+          apt-get update
+          apt-get upgrade -y --no-install-recommends
 
       - name: Update compiler toolchains
         run: |
@@ -49,7 +43,7 @@ jobs:
 
       - name: Test
         run: | 
-          sudo -u q env "PATH=$PATH" "HOME=/home/q" ls -la
+          ls -la
 
 #      - name: Build Cross-Compilation Container
 #        run: make docker-image
