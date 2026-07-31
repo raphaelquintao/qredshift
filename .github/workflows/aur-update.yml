@@ -90,8 +90,20 @@ jobs:
       - name: Generate Fresh .SRCINFO for Arch Linux
         shell: bash
         run: |
+          # 1. Give 'nobody' user a fake home directory (makepkg needs this to store config caches)
+          mkdir -p /tmp/nobody-home
+          chown -R nobody:nobody /tmp/nobody-home
+          
+          # 2. Grant temporary ownership of your aur script directory to 'nobody'
+          chown -R nobody:nobody scripts/aur
+          
+          # 3. Execute the native printsrcinfo tool as the non-root 'nobody' user
           cd scripts/aur
-          makepkg --printsrcinfo > .SRCINFO
+          HOME=/tmp/nobody-home su nobody -s /bin/bash -c "makepkg --printsrcinfo" > .SRCINFO
+          
+          # 4. Crucial: Reset ownership back to root so GitHub Actions commits it properly
+          cd ../..
+          chown -R root:root scripts/aur
 
       - name: Commit and Push Changes Back to GitHub
         shell: bash
