@@ -34,9 +34,9 @@ RUN apt-get update && apt-get upgrade -y &&  \
     libxrandr-dev:* libxcb1-dev:* libxcb-randr0-dev:* libwayland-dev:* \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -s /bin/bash -u 1000 q &&  echo "q ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-WORKDIR /home/q
-USER q
-CMD ["/bin/bash", "-l"]
+#RUN useradd -m -s /bin/bash -u 1000 q &&  echo "q ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+#
+#WORKDIR /home/q
+#USER q
+#CMD ["/bin/bash", "-l"]
 
