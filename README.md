@@ -28,7 +28,7 @@ Modern desktop workflows with dynamic display hotplugging, multi-GPU setups, and
 
 * **Rebuilding a Classic Foundation:** Replaces 15-year-old X11 code patterns with a modern, stateless architecture that requires zero configuration files or background processes on X11.
 * **End to "[Hotplug Chaos](docs/ABOUT.md#the-hotplug-chaos)":** Replaces fragile positional array indexing with persistent hardware XIDs so display settings never swap when plugging into a dock or external screen.
-* **Asynchronous XCB Engine:** Replaces 2010-era synchronous XCB calls with a modern asynchronous pipelined engine.
+* **Asynchronous XCB Engine:** Replaces 2010-era synchronous XCB calls with a modern asynchronous pipelined implementation.
 * **Named Output Control:** Seamlessly target individual monitors by name (`eDP-1`, `DP-2`) with custom per-display temperature and brightness curves.
 
 **[Deep dive into the architecture and X11 engine fixes in ABOUT.md](docs/ABOUT.md)**
