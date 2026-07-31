@@ -1,0 +1,102 @@
+name: Update AUR Package
+
+on:
+  release:
+    types: [published] # Triggers automatically when a release transitions out of draft
+  workflow_dispatch: # Allows manual trigger from the Actions tab button
+    inputs:
+      tag_name:
+        description: "Tag name to fetch assets and update (example: v1.0.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-aur-manifest:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          # If manual, use the main/default branch; if automated, use the release target commit
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.event.release.target_commitish }}
+
+      - name: Download Built Tarballs from Release
+        shell: bash
+        run: |
+          # 1. Fallback logic for tag name selection
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+            # Construct standard release asset base URL for manual run
+            RELEASE_URL="https://github.com{{ github.repository }}/releases/tag/${TAG_NAME}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+            RELEASE_URL="${{ github.event.release.html_url }}"
+          fi
+
+          VERSION="${TAG_NAME#v}"
+          mkdir -p dist
+          cd dist
+          
+          for SUFFIX in x86_64 i686 aarch64 armv7l powerpc64le riscv64; do
+            FILE_NAME="qredshift_${VERSION}_${SUFFIX}.tar.gz"
+            # Formats download link cleanly to target specific tags directly
+            URL="https://github.com{{ github.repository }}/releases/download/${TAG_NAME}/${FILE_NAME}"
+            
+            echo "Fetching asset from: $URL"
+            curl -L -O -s --fail "$URL" || echo "Warning: Could not fetch $FILE_NAME"
+          done
+
+      - name: Update PKGBUILD Version and SHA256 Hashes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+          
+          VERSION="${TAG_NAME#v}"
+          TARGET_PKGBUILD="scripts/aur/PKGBUILD"
+          
+          sed -i "s/pkgver=.*/pkgver=$VERSION/" "$TARGET_PKGBUILD"
+          sed -i "s/_pkgver=.*/_pkgver=$VERSION/" "$TARGET_PKGBUILD"
+          
+          for pair in x86_64:x86_64 i686:i686 aarch64:aarch64 armv7h:armv7l ppc64le:powerpc64le riscv64:riscv64; do
+            ARCH="${pair%%:*}"
+            SUFFIX="${pair#*:}"
+            
+            FILE_PATH=$(find dist/ -type f -name "qredshift_${VERSION}_${SUFFIX}.tar.gz" | head -n 1)
+            
+            if [ -f "$FILE_PATH" ]; then
+              COMPUTED_HASH=$(sha256sum "$FILE_PATH" | awk '{print $1}')
+              echo "Calculated $ARCH hash: $COMPUTED_HASH"
+              sed -i "s/sha256sums_${ARCH}=('SKIP')/sha256sums_${ARCH}=('${COMPUTED_HASH}')/" "$TARGET_PKGBUILD"
+            else
+              echo "Warning: No build file found for $ARCH ($SUFFIX)"
+            fi
+          done
+
+      - name: Commit and Push Updated PKGBUILD
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+            TARGET_BRANCH="${{ github.event.repository.default_branch }}"
+          else
+            TAG_NAME="${{ github.event.release.tag_name }}"
+            TARGET_BRANCH="${{ github.event.release.target_commitish }}"
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          
+          git add scripts/aur/PKGBUILD
+          git commit -m "chore(aur): auto-update PKGBUILD hashes for release ${TAG_NAME}" || echo "No changes to commit"
+          
+          git push origin HEAD:${TARGET_BRANCH}
