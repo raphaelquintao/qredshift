@@ -71,17 +71,27 @@ jobs:
       - name: Publish Automatically directly to the AUR Server
         shell: bash
         run: |
-          mkdir -p aur-repo
-          cd aur-repo
-          
-          git clone ssh://aur@aur.archlinux.org/qredshift.git .
-          
-          cp ../aur/PKGBUILD .
-          cp ../aur/.SRCINFO .
-          
-          git config user.name "Raphael Quintao"
-          git config user.email "raphaelquintao@gmail.com"
-          
-          git add PKGBUILD .SRCINFO
-          git commit -m "Update to version ${{ github.event.release.tag_name || inputs.tag_name }}" || echo "No changes to publish"
-          git push origin master
+          export TAG_NAME="${{ github.event.release.tag_name || inputs.tag_name }}"
+
+          # Use -w to forward our TAG_NAME environment variable safely
+          su -w TAG_NAME builder -c '
+            mkdir -p aur-repo
+            cd aur-repo
+            
+            # Clone using the builder identity (which has the SSH key ready)
+            git clone ssh://aur@aur.archlinux.org/qredshift.git .
+            
+            # Copy your newly generated package files into place
+            cp ../aur/PKGBUILD .
+            cp ../aur/.SRCINFO .
+            
+            # Configure Git inside the builder workspace context
+            git config user.name "Raphael Quintao"
+            git config user.email "raphaelquintao@gmail.com"
+            
+            git add PKGBUILD .SRCINFO
+            
+            # Commit and push
+            git commit -m "Update to version $TAG_NAME" || echo "No changes to publish"
+            git push origin master
+          '
