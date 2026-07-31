@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 # Copyright (c) 2024-2026 Raphael Quintao <raphaelquintao@gmail.com>
-# This file is part of qredshift.
+# https://github.com/raphaelquintao/qredshift
 # SPDX-License-Identifier: Apache-2.0
 #
 # This script aims to generate a Debian Policy-compliant binary package.
@@ -17,12 +17,23 @@ set -e
 
 qecho() { printf "\e[%sm%b\e[0m" "$2" "$1"; }
 
-PKG_NAME="${1}"
-RAW_VERSION="${2}"
-VERSION="${2}-1"
-ARCH="${3:uname-m}"
-DEB_DATE="${4:date-R}"
-ITP_BUG_NUMBER="123456"
+BASE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+PKG_NAME="${1:-"qredshift"}"
+RAW_VERSION="${2:-"0.0.0"}"
+REVISION=${5:-1}
+VERSION="${RAW_VERSION}-${REVISION}"
+ARCH="${3:-$(uname -m)}"
+DEB_DATE="${4:-$(date -R)}"
+
+if [[ -z "${GPG_PRIVATE_KEY:-}" ]]; then
+  echo "Error: GPG_PRIVATE_KEY environment variable is not set or empty."
+  exit 1
+else
+  echo "GPG_PRIVATE_KEY found. Importing into GPG..."
+  # Import the private key safely using echo and pipe
+  echo -e "$GPG_PRIVATE_KEY" | gpg --batch --import
+fi
 
 # Map incoming architecture string to the official Debian GNU architecture label
 declare -A DEB_ARCH_MAP=(
@@ -30,7 +41,12 @@ declare -A DEB_ARCH_MAP=(
   [i686]="i386"
   [aarch64]="arm64"
   [armv7l]="armhf"
+  #  [armv5tel]="armel"
+  #  [mips64el]="mips64el"
+  #  [mipsel]="mipsel"
   [powerpc64le]="ppc64el"
+  #  [s390x]="s390x"
+  [riscv64]="riscv64"
 )
 
 DEB_ARCH="${DEB_ARCH_MAP[$ARCH]}"
@@ -49,49 +65,70 @@ qecho "DEB Arch: " "34"
 qecho "$DEB_ARCH\n" "1"
 qecho " => " "1"
 qecho "Date: " "34"
-qecho "Date: $DEB_DATE\n" "1"
+qecho "$DEB_DATE\n" "1"
 
-PROJECT_ROOT="$(pwd)"
-TMP_ROOT="$(mktemp -d /tmp/qredshift-deb-XXXXXX)"
+PROJECT_ROOT=$(dirname "$BASE")
+
+#TMP_ROOT="$(mktemp -d /tmp/qredshift-deb-XXXXXX)"
+TMP_ROOT="/tmp/qredshift-deb-$VERSION"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-WORKSPACE="$TMP_ROOT"
+#TMP_ROOT="${PROJECT_ROOT}/TMP_ROOT"
 
-mkdir -p "$WORKSPACE"
+rm -rf "${TMP_ROOT:?}/"*
+
+WORKSPACE="$TMP_ROOT/workspace"
+mkdir -p "$WORKSPACE/debian/source"
 
 # Copy Source
-cp Makefile "$WORKSPACE/"
+cp "$PROJECT_ROOT/Makefile" "$WORKSPACE/"
 cp -R "$PROJECT_ROOT/src/" "$WORKSPACE/"
 cp -R "$PROJECT_ROOT/data/" "$WORKSPACE/"
 
-tar -cJf "/tmp/${PKG_NAME}_${RAW_VERSION}.orig.tar.xz" -C "$WORKSPACE" .
+cd "$WORKSPACE"
 
-mkdir -p "$WORKSPACE/debian/source"
-echo "3.0 (quilt)" >"$WORKSPACE/debian/source/format"
+tar --exclude='debian' -cJf "../${PKG_NAME}_${RAW_VERSION}.orig.tar.xz" -- *
 
 # ==========================================
 # DYNAMIC DEBIAN METADATA GENERATION
 # ==========================================
+echo "3.0 (quilt)" >"$WORKSPACE/debian/source/format"
+
+cat >"$WORKSPACE/debian/changelog" <<EOF
+$PKG_NAME ($VERSION) unstable; urgency=medium
+
+  * Initial release of standalone QRedshift. (Closes: #${ITP_BUG_NUMBER})
+  * Added Wayland support via wlr-gamma-control-unstable-v1 protocol.
+  * Added dynamic backend loading via dlopen().
+  * Added native multi-monitor control (-d flag).
+  * Upgraded packaging to source format 3.0 (quilt).
+
+ -- Raphael Quintao <raphaelquintao@gmail.com>  $DEB_DATE
+EOF
+
 cat >"$WORKSPACE/debian/control" <<EOF
-Source: $PKG_NAME
+Source: ${PKG_NAME}
 Section: utils
 Priority: optional
 Maintainer: Raphael Quintao <raphaelquintao@gmail.com>
 Build-Depends: debhelper-compat (= 13), libwayland-dev, libx11-dev, libxrandr-dev, libxcb1-dev, libxcb-randr0-dev
 Standards-Version: 4.7.0
-Homepage: https://github.com/raphaelquintao/QRedshift
+Homepage: https://github.com/raphaelquintao/qredshift
 
-Package: $PKG_NAME
-Architecture: amd64 i386 arm64 armhf ppc64el
+Package: ${PKG_NAME}
+Architecture: amd64 i386 arm64 armhf ppc64el riscv64
 Depends: \${shlibs:Depends}, \${misc:Depends}
 Recommends: bash-completion
 Suggests: \${custom:WaylandDepends}
-Description: Fast and Modern screen temperature tool supporting multi-display X11 and Wayland
- A lightweight, stateless command-line utility for Linux display color
- management. QRedshift lets you adjust screen temperature (kelvin),
- brightness, and gamma correction on individual monitors across X11
- (XCB/Xlib) and Wayland (wlr-gamma-control-unstable-v1) display
- servers. It replaces redshift, sct, and gammastep with a C99
+Description: Stateless, modern multi-display screen color temperature CLI for X11 and Wayland
+ A modern, high-performance, stateless command-line utility for screen
+ color temperature on Linux. Native multi-monitor for X11 and Wayland.
+ .
+ QRedshift lets you adjust screen temperature, brightness, and gamma
+ correction on individual monitors, across X11 (XCB/Xlib) and Wayland
+ (wlr-gamma-control-unstable-v1) display servers.
+ .
+ It replaces redshift, sct, and gammastep with a C99
  implementation that compiles to a ~40KB binary. Key features: native
  multi-monitor support, reverse gamma reconstruction without stored
  state, Wayland daemon mode with FIFO-based IPC, and a shared library
@@ -99,18 +136,10 @@ Description: Fast and Modern screen temperature tool supporting multi-display X1
  on X11 systems.
 EOF
 
-cat >"$WORKSPACE/debian/changelog" <<EOF
-$PKG_NAME ($VERSION) unstable; urgency=medium
-
-  * Initial release. (Closes: #${ITP_BUG_NUMBER})
-
- -- Raphael Quintao <raphaelquintao@gmail.com>  $DEB_DATE
-EOF
-
 cat >"$WORKSPACE/debian/copyright" <<EOF
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: https://github.com/raphaelquintao/QRedshift
-Upstream-Name: $PKG_NAME
+Source: https://github.com/raphaelquintao/qredshift
+Upstream-Name: ${PKG_NAME}
 Upstream-Contact: Raphael Quintao <raphaelquintao@gmail.com>
 
 Files: *
@@ -125,10 +154,6 @@ License: Apache-2.0
  On Debian systems, the full text of the Apache License version 2
  can be found in the file "/usr/share/common-licenses/Apache-2.0".
 EOF
-
-#cat >"$WORKSPACE/debian/lintian-overrides" <<EOF
-#$PKG_NAME: binary-from-other-architecture *
-#EOF
 
 cat >"$WORKSPACE/debian/rules" <<'EOF'
 #!/usr/bin/make -f
@@ -154,6 +179,7 @@ override_dh_gencontrol:
 	# Execute the standard control generator passing the variables forward
 	dh_gencontrol
 	
+
 override_dh_auto_install:
 	dh_auto_install -- "INSTALL=install --strip-program="
 
@@ -167,48 +193,50 @@ chmod +x "$WORKSPACE/debian/rules"
 
 qecho "Starting compilation (-a $DEB_ARCH)\n" "1;35"
 
-export DEB_HOST_ARCH="$DEB_ARCH"
-export CFLAGS="$(dpkg-buildflags --get CFLAGS)"
-export CXXFLAGS="$(dpkg-buildflags --get CXXFLAGS)"
-export LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"
+#export ARCH
+#echo $(dpkg-architecture -a"$DEB_ARCH")
 
-cd "$WORKSPACE"
-dpkg-buildpackage -us -uc -a "$DEB_ARCH" --check-command=lintian -Pcross
+#echo $ARCH
+#echo $DEB_TARGET_GNU_CPU
+#exit
+#DEB_HOST_ARCH="$DEB_ARCH"
+#CFLAGS="$(dpkg-buildflags --get CFLAGS)"
+#CXXFLAGS="$(dpkg-buildflags --get CXXFLAGS)"
+#LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"
+
+#export DEB_HOST_ARCH
+#export CFLAGS CXXFLAGS LDFLAGS
+
+#echo "$CFLAGS"
+#exit
+
+debuild --preserve-env -a"$DEB_ARCH" -k"raphaelquintao@gmail.com" -Pcross
 
 PACKED="${PKG_NAME}_${RAW_VERSION}_${ARCH}.tar.gz"
-OUT_DEB="${PKG_NAME}_${VERSION}_${DEB_ARCH}.deb"
+#OUT_DEB="${PKG_NAME}_${VERSION}_${DEB_ARCH}.deb"
+
 
 #BIN_OUT_DIR="$PROJECT_ROOT/bin/$ARCH"
 #BUILD_OUT_DIR="$PROJECT_ROOT/build/$ARCH"
-#OUT="${PKG_NAME}_${VERSION}_${DEB_ARCH}"
 #mkdir -p "$BIN_OUT_DIR"
 #mkdir -p "$BUILD_OUT_DIR"
 
-mkdir -p "$PROJECT_ROOT/bin/"
+#mkdir -p "$PROJECT_ROOT/bin/"
+
 mkdir -p ../pack
 cp "debian/$PKG_NAME/usr/bin"/* ../pack/
 cp "debian/$PKG_NAME/usr/lib/$PKG_NAME"/* ../pack/
 cp "$PROJECT_ROOT/LICENSE.txt" ../pack/
 cp -R data/* ../pack/
 
-
-#cp -R build/"$ARCH"/* "$BUILD_OUT_DIR/"
-#cp -R "debian" "$BUILD_OUT_DIR/"
+DIST_DIR="$PROJECT_ROOT/dist/$ARCH"
+mkdir -p "$DIST_DIR"
 
 cd ..
-#ls -la
-
-cp "$OUT_DEB" "$PROJECT_ROOT/bin/"
-#mv qredshift*.{deb,changes,buildinfo,dsc,tar.xz} "$BIN_OUT_DIR/"
-
 cd pack
-tar -czvf "$PACKED" *
-cp "$PACKED" "$PROJECT_ROOT/bin/"
+tar -czf "$PACKED" -- *
+mv "$PACKED" "$DIST_DIR"
 
 
-
-
-
-
-
-
+cd ..
+mv qredshift*.{deb,changes,buildinfo,dsc,tar.xz} "$DIST_DIR"

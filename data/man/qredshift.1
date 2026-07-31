@@ -1,6 +1,6 @@
 .TH QREDSHIFT 1 "2026" "qredshift" "User Commands"
 .SH NAME
-qredshift \- Stateless Linux CLI for screen temperature, brightness, and gamma. Multi-monitor X11 and Wayland. Redshift alternative.
+qredshift \- Stateless C99 CLI for display color temperature, brightness, and gamma control on Linux. Native X11 and Wayland. Per-monitor targeting.
 .SH SYNOPSIS
 .B qredshift
 .RB [ \-h ]
@@ -18,24 +18,31 @@ qredshift \- Stateless Linux CLI for screen temperature, brightness, and gamma. 
 .RB [ \-interp ]
 .RB [ \-wd ]
 .SH DESCRIPTION
-A lightweight, stateless command-line utility for Linux display color
-management. QRedshift lets you adjust screen temperature (kelvin),
-brightness, and gamma correction on individual monitors across X11
-(XCB/Xlib) and Wayland (wlr-gamma-control-unstable-v1) display
-servers.
+.B qredshift
+is a high-performance, stateless command-line utility for
+adjusting screen color temperature, brightness, and gamma on
+Linux. It is a modern replacement for
+.BR redshift (1),
+.BR sct (1),
+and
+.BR gammastep (1).
 .PP
-It replaces redshift, sct, and gammastep with a C99 implementation
-that compiles to a ~40KB binary.
+On X11,
+.B qredshift
+applies the requested gamma ramp immediately and exits; it keeps no
+daemon and no configuration state, instead reconstructing its current
+settings directly from the live hardware gamma ramps when needed. On
+Wayland, where gamma control is tied to the compositor connection, it
+runs a lightweight background daemon communicating over a FIFO pipe so
+that later invocations apply instantly.
 .PP
-Key features: native multi-monitor support, reverse gamma
-reconstruction without stored state, Wayland daemon mode with
-FIFO-based IPC, and a shared library plugin design that avoids
-pulling libwayland-client as a dependency on X11 systems.
-.PP
-By default all connected displays are updated with the same values.
-Per-display overrides are configured with the
+.B qredshift
+supports independent per-display targeting via the
 .B \-d
-flag.
+flag, and compiles to a ~40KB binary.
+.PP
+.B Key features:
+native multi-monitor support, reverse gamma reconstruction without stored state, Wayland daemon mode with FIFO-based IPC, and a shared library plugin design that avoids pulling libwayland-client as a dependency on X11 systems.
 .SH OPTIONS
 .TP
 .B \-h
@@ -89,12 +96,12 @@ target display 1 by index, using the global temperature
 target display by RandR output name
 .RE
 .PP
-.B qredshift \-t 6500 \-d 1:t=4500:b=0.8
+.B qredshift \-t 6500 \-d 84:t=4500:b=0.8
 .RS 0
-display 1 overrides temperature and brightness; other displays get the global 6500K
+display 84 overrides temperature and brightness; other displays get the global 6500K
 .RE
 .PP
-.B qredshift \-d 0:t=6500:b=1.0 \-d 1:t=4500:b=0.8
+.B qredshift \-d 84:t=6500:b=1.0 \-d 85:t=4500:b=0.8
 .RS 0
 two displays, fully independent settings
 .RE
@@ -111,6 +118,24 @@ Use the legacy interpolation method for Kelvin-to-RGB conversion.
 Start the Wayland daemon without applying initial values. Only
 available on Wayland sessions. The daemon listens on a FIFO pipe
 for subsequent commands.
+.SH EXAMPLES
+.B qredshift \-i
+.RS
+.EX
+Display Server: x11
+Desktop Environment: X-Cinnamon
+Mode: XCB RandR
+84:C:DisplayPort-0:1920x1080 | T: 6500K | B: 1.00 | G: 1.00
+85:C:DisplayPort-1:1920x1080 | T: 6500K | B: 1.00 | G: 1.00
+.EE
+.RE
+.B qredshift \-d DisplayPort\-0 \-t 4000 \-b 0.85
+.RS
+Apply 4000K temperature and 85% brightness specifically to display connector DisplayPort-0.
+.RE
+.B qredshift \-d DisplayPort\-1:t=6500:b=1.0 \-d 84:t=4500:b=0.8
+.RS
+Two displays, fully independent settings.RE
 .SH EXIT STATUS
 .B 0
 on success, non-zero on error (for example, no supported X11 or
@@ -130,10 +155,11 @@ Used to detect an X11 session. If
 is not present or its socket is unreachable, the X11 backend is
 selected.
 .SH SEE ALSO
-.BR xrandr (1),
 .BR redshift (1),
 .BR gammastep (1)
+.BR xrandr (1),
+.BR xsct (1),
 .SH AUTHOR
 Raphael Quintao <raphaelquintao@gmail.com>
 .SH HOMEPAGE
-https://github.com/raphaelquintao/QRedshift
+https://github.com/raphaelquintao/qredshift

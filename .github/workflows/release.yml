@@ -16,6 +16,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    container:
+      image: ghcr.io/raphaelquintao/qredshift-cross:debian-13
+      volumes:
+        - $(pwd):/home/q/qredshift
+      env:
+        GPG_PRIVATE_KEY: ${{secrets.GPG_PRIVATE_KEY}}
+
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -23,20 +30,28 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag_name) || github.ref }}
 
-      - name: Build Cross-Compilation Container
-        run: make docker-image
-
-      - name: Cross-Compile Binaries and Linux Packages
+      - name: Update compiler toolchains
         run: |
-          docker run --rm -v $(pwd):/qredshift  -u "$(id -u):$(id -g)"  qredshift-cross:latest make debs
+          sudo apt-get update
+          sudo apt-get upgrade -y --no-install-recommends
 
-      # Points directly to 'bin/' matching your output files tree structure
-      - name: Create and Upload Draft Release Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-          generate_release_notes: true
-          draft: true
-          files: |
-            bin/*.deb
-            bin/*.tar.gz
+      - name: Test
+        run: ls -la
+
+#      - name: Build Cross-Compilation Container
+#        run: make docker-image
+#
+#      - name: Cross-Compile Binaries and Linux Packages
+#        run: |
+#          docker run --rm -v $(pwd):/qredshift  -u "$(id -u):$(id -g)" qredshift-cross:latest make debs
+#
+#      # Points directly to 'bin/' matching your output files tree structure
+#      - name: Create and Upload Draft Release Assets
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+#          generate_release_notes: true
+#          draft: true
+#          files: |
+#            bin/*.deb
+#            bin/*.tar.gz
