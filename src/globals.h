@@ -33,3 +33,10 @@ extern int Q_VERBOSE;
 #define MIN_GAMMA 0.1
 #define MAX_GAMMA 5.0
 #define DEF_GAMMA 1.0
+
+#define MIN_TRANSITION_MS 0
+#define MAX_TRANSITION_MS 60000
+#define DEF_TRANSITION_MS 0
+
+// Transition frame interval (~60 FPS).
+#define TRANSITION_FRAME_MS 16

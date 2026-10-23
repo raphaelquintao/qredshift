@@ -25,6 +25,7 @@ enum {
 	P_GAMMA,
 	P_DISPLAY,
 	P_SEP2,
+	P_TRANS,
 	P_INTERP,
 	P_XLIB,
 };
@@ -41,6 +42,7 @@ int x11_backend(int argc, char *argv[]) {
 		{"-g", "Gamma from " TOSTRING(MIN_GAMMA) " to " TOSTRING(MAX_GAMMA), TOSTRING(DEF_GAMMA), 0},
 		{"-d", "Target display (repeatable)", "<id[:t=K][:b=B][:g=G]>", 0},
 		{"", "", "", 0},
+		{"-T", "Transition duration in ms (" TOSTRING(MIN_TRANSITION_MS) "-" TOSTRING(MAX_TRANSITION_MS) ")", "0", 0},
 		{"-interp", "Use interpolation method", "", 0},
 		{"-xlib", "Use Xlib instead of XCB", "", 0},
 	};
@@ -86,10 +88,12 @@ int x11_backend(int argc, char *argv[]) {
 	int kelvin = qatoi(params[P_TEMP].value, DEF_KELVIN);
 	double bright = qatof(params[P_BRIGHT].value, DEF_BRIGHT);
 	double gamma = qatof(params[P_GAMMA].value, DEF_GAMMA);
+	int transition = qatoi(params[P_TRANS].value, DEF_TRANSITION_MS);
 
 	kelvin = clamp_int(kelvin, MIN_KELVIN, MAX_KELVIN);
 	bright = clamp_float(bright, MIN_BRIGHT, MAX_BRIGHT);
 	gamma = clamp_float(gamma, MIN_GAMMA, MAX_GAMMA);
+	transition = clamp_int(transition, MIN_TRANSITION_MS, MAX_TRANSITION_MS);
 
 	DisplayTarget targets[MAX_TARGETS];
 	int num_targets = 0;
@@ -107,8 +111,8 @@ int x11_backend(int argc, char *argv[]) {
 	// 	printf("Target %d: id=%s, kelvin=%d, bright=%.2f, gamma=%.2f\n", i, targets[i].id, targets[i].kelvin, targets[i].bright, targets[i].gamma);
 	// }
 
-	if (xlib) xlib_randr_set_temperature(kelvin, bright, gamma, interp, targets, num_targets);
-	else qxcb_set_temperature(kelvin, bright, gamma, interp, targets, num_targets);
+	if (xlib) xlib_randr_set_temperature(kelvin, bright, gamma, interp, targets, num_targets, transition);
+	else qxcb_set_temperature(kelvin, bright, gamma, interp, targets, num_targets, transition);
 
 
 	return EXIT_SUCCESS;

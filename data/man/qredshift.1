@@ -14,6 +14,8 @@ qredshift \- Stateless C99 CLI for display color temperature, brightness, and ga
 .IR gamma ]
 .RB [ \-d
 .IR target ]\ .\|.\|.
+.RB [ \-T
+.IR ms ]
 .RB [ \-xlib ]
 .RB [ \-interp ]
 .RB [ \-wd ]
@@ -107,6 +109,14 @@ two displays, fully independent settings
 .RE
 .RE
 .RE
+.TP
+.BI \-T \ ms
+Transition duration in milliseconds, from 0 to 60000. Defaults to 0, which
+applies the change instantly. When non-zero, the temperature, brightness, and
+gamma change fades smoothly over the requested duration by interpolating the
+hardware gamma ramp at roughly 60 FPS. Available on both X11 (XCB and Xlib) and
+Wayland; on Wayland the daemon animates without blocking and retargets smoothly
+if a new value is set while a transition is in progress.
 .TP
 .B \-xlib
 Use the Xlib backend instead of the default XCB backend.

@@ -25,6 +25,8 @@ typedef struct {
 } QGAMMA;
 
 
+QGAMMA *alloc_gamma_ramp(int ramp_size);
+
 QGAMMA *calculate_gamma_ramp(int kelvin, double bright, double gamma, int ramp_size, int interpolation);
 
 GammaParams reverse_gamma_ramp(const QGAMMA *ramp, int ramp_size, int interpolation);

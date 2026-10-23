@@ -25,6 +25,7 @@ REVISION=${5:-1}
 VERSION="${RAW_VERSION}-${REVISION}"
 ARCH="${3:-$(uname -m)}"
 DEB_DATE="${4:-$(date -R)}"
+ITP_BUG_NUMBER=1143208
 
 if [[ -z "${GPG_PRIVATE_KEY:-}" ]]; then
   echo "Error: GPG_PRIVATE_KEY environment variable is not set or empty."
@@ -71,7 +72,7 @@ PROJECT_ROOT=$(dirname "$BASE")
 
 #TMP_ROOT="$(mktemp -d /tmp/qredshift-deb-XXXXXX)"
 TMP_ROOT="/tmp/qredshift-deb-$VERSION"
-trap 'rm -rf "$TMP_ROOT"' EXIT
+#trap 'rm -rf "$TMP_ROOT"' EXIT
 
 #TMP_ROOT="${PROJECT_ROOT}/TMP_ROOT"
 
@@ -97,11 +98,17 @@ echo "3.0 (quilt)" >"$WORKSPACE/debian/source/format"
 cat >"$WORKSPACE/debian/changelog" <<EOF
 $PKG_NAME ($VERSION) unstable; urgency=medium
 
-  * Initial release of standalone QRedshift. (Closes: #${ITP_BUG_NUMBER})
-  * Added Wayland support via wlr-gamma-control-unstable-v1 protocol.
-  * Added dynamic backend loading via dlopen().
-  * Added native multi-monitor control (-d flag).
-  * Upgraded packaging to source format 3.0 (quilt).
+  * Smooth Transitions: Optional (-T <ms>) duration that fades
+    temperature, brightness, and gamma changes by interpolating
+    the hardware ramp in at ~60 FPS. Implemented as an in-place
+    ramp interpolation on X11 (XCB and Xlib) and as a non-blocking,
+    poll-driven animation in the Wayland daemon.
+
+  * X11 (XCB and Xlib): the one-shot process stays alive for the
+    duration, applying intermediate ramps before exiting.
+  * Wayland: the daemon drives the fade from its existing poll()
+    loop via a timeout, staying responsive and retargeting smoothly
+    when a new command arrives mid-fade.
 
  -- Raphael Quintao <raphaelquintao@gmail.com>  $DEB_DATE
 EOF
@@ -112,8 +119,10 @@ Section: utils
 Priority: optional
 Maintainer: Raphael Quintao <raphaelquintao@gmail.com>
 Build-Depends: debhelper-compat (= 13), libwayland-dev, libx11-dev, libxrandr-dev, libxcb1-dev, libxcb-randr0-dev
-Standards-Version: 4.7.0
+Standards-Version: 4.7.4
 Homepage: https://github.com/raphaelquintao/qredshift
+Vcs-Git: https://github.com/raphaelquintao/qredshift.git
+Vcs-Browser: https://github.com/raphaelquintao/qredshift
 
 Package: ${PKG_NAME}
 Architecture: amd64 i386 arm64 armhf ppc64el riscv64
@@ -186,28 +195,14 @@ override_dh_auto_install:
 # Skip steps since there is no autoconf or test suite
 override_dh_auto_configure:
 override_dh_auto_test:
-
 EOF
 
 chmod +x "$WORKSPACE/debian/rules"
 
 qecho "Starting compilation (-a $DEB_ARCH)\n" "1;35"
 
-#export ARCH
-#echo $(dpkg-architecture -a"$DEB_ARCH")
 
-#echo $ARCH
-#echo $DEB_TARGET_GNU_CPU
-#exit
-#DEB_HOST_ARCH="$DEB_ARCH"
-#CFLAGS="$(dpkg-buildflags --get CFLAGS)"
-#CXXFLAGS="$(dpkg-buildflags --get CXXFLAGS)"
-#LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"
-
-#export DEB_HOST_ARCH
-#export CFLAGS CXXFLAGS LDFLAGS
-
-#echo "$CFLAGS"
+#debuild -S -k"raphaelquintao@gmail.com"
 #exit
 
 debuild --preserve-env -a"$DEB_ARCH" -k"raphaelquintao@gmail.com" -Pcross

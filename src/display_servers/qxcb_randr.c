@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../core/qramps.h"
+#include "../core/qtransition.h"
+#include "../globals.h"
 #include "../utils/x11_utils.h"
 
 #define REF_NAME "XCB RandR"
@@ -184,6 +186,15 @@ int qxcb_show_info(int only_connected, int interpolation) {
 	return ret;
 }
 
+
+typedef struct {
+	xcb_randr_crtc_t crtc;
+	int size;
+	QGAMMA *from;
+	QGAMMA *to;
+	QGAMMA *cur;
+} QXCB_ANIM;
+
 /**
  * Set the temperature, brightness, and gamma for the specified display targets.
  *
@@ -195,7 +206,7 @@ int qxcb_show_info(int only_connected, int interpolation) {
  * https://xcb.freedesktop.org/tutorial/
  * https://xcb.freedesktop.org/PublicApi/
  */
-int qxcb_set_temperature(int kelvin, double bright, double gamma, int interpolation, DisplayTarget *targets, int num_targets) {
+int qxcb_set_temperature(int kelvin, double bright, double gamma, int interpolation, DisplayTarget *targets, int num_targets, int transition_ms) {
 	QXCB_RANDR state;
 
 	if (qxcb_randr_init(&state) < 0) {
@@ -259,8 +270,17 @@ int qxcb_set_temperature(int kelvin, double bright, double gamma, int interpolat
 		has_gamma[i] = 1;
 	}
 
-	// Pass 3: compare and set only changed CRTCs
+	// Pass 3: compare and set only changed CRTCs. When a transition is
+	// requested the changed ramps are collected and applied over time below;
+	// otherwise no animation bookkeeping is allocated and the instant path is
+	// taken untouched.
+	QXCB_ANIM *anims = NULL;
+	int n_anims = 0;
 	int total_changed = 0;
+	if (transition_ms > 0) {
+		anims = calloc((size_t)num_outputs, sizeof(QXCB_ANIM));
+	}
+
 	for (int i = 0; i < num_outputs; i++) {
 		if (!has_gamma[i]) continue;
 
@@ -290,25 +310,88 @@ int qxcb_set_temperature(int kelvin, double bright, double gamma, int interpolat
 		}
 
 		int ramp_size = (int)gamma_reply->size;
-		QGAMMA *new_ramp = calculate_gamma_ramp(eff_k, eff_b, eff_g, ramp_size, interpolation);
+		QGAMMA *to = calculate_gamma_ramp(eff_k, eff_b, eff_g, ramp_size, interpolation);
+		if (!to) {
+			free(gamma_reply);
+			continue;
+		}
 
 		uint16_t *cur_r = xcb_randr_get_crtc_gamma_red(gamma_reply);
 		uint16_t *cur_g = xcb_randr_get_crtc_gamma_green(gamma_reply);
 		uint16_t *cur_b = xcb_randr_get_crtc_gamma_blue(gamma_reply);
 
-		int changed = memcmp(cur_r, new_ramp->r, ramp_size * sizeof(uint16_t)) != 0 ||
-		              memcmp(cur_g, new_ramp->g, ramp_size * sizeof(uint16_t)) != 0 ||
-		              memcmp(cur_b, new_ramp->b, ramp_size * sizeof(uint16_t)) != 0;
+		int changed = memcmp(cur_r, to->r, ramp_size * sizeof(uint16_t)) != 0 ||
+		              memcmp(cur_g, to->g, ramp_size * sizeof(uint16_t)) != 0 ||
+		              memcmp(cur_b, to->b, ramp_size * sizeof(uint16_t)) != 0;
 
-		free(gamma_reply);
-
-		if (changed) {
-			xcb_randr_set_crtc_gamma(state.conn, out_replies[i]->crtc, (uint16_t)ramp_size, new_ramp->r, new_ramp->g, new_ramp->b);
-			total_changed++;
+		if (!changed) {
+			free(gamma_reply);
+			free_gamma_ramp(to);
+			continue;
 		}
 
-		free_gamma_ramp(new_ramp);
+		if (transition_ms <= 0 || !anims) {
+			// Instant apply path (no animation).
+			xcb_randr_set_crtc_gamma(state.conn, out_replies[i]->crtc, (uint16_t)ramp_size, to->r, to->g, to->b);
+			total_changed++;
+			free(gamma_reply);
+			free_gamma_ramp(to);
+			continue;
+		}
+
+		// Defer this CRTC so the change can be animated smoothly.
+		QXCB_ANIM *a = &anims[n_anims];
+		a->crtc = out_replies[i]->crtc;
+		a->size = ramp_size;
+		a->to = to;
+		a->from = alloc_gamma_ramp(ramp_size);
+		a->cur = alloc_gamma_ramp(ramp_size);
+
+		if (!a->from || !a->cur) {
+			free_gamma_ramp(a->from);
+			free_gamma_ramp(a->cur);
+			free_gamma_ramp(a->to);
+			free(gamma_reply);
+			continue;
+		}
+
+		for (int j = 0; j < ramp_size; j++) {
+			a->from->r[j] = cur_r[j];
+			a->from->g[j] = cur_g[j];
+			a->from->b[j] = cur_b[j];
+		}
+
+		free(gamma_reply);
+		n_anims++;
 	}
+
+	// Animate the deferred ramps from the captured "from" towards the target.
+	if (n_anims > 0) {
+		uint64_t start = now_monotonic_ms();
+		int done = 0;
+
+		while (!done) {
+			double t = transition_progress(start, (uint32_t)transition_ms);
+			done = (t >= 1.0);
+
+			for (int i = 0; i < n_anims; i++) {
+				QXCB_ANIM *a = &anims[i];
+				lerp_gamma_ramp(a->from, a->to, t, a->cur, a->size);
+				xcb_randr_set_crtc_gamma(state.conn, a->crtc, (uint16_t)a->size, a->cur->r, a->cur->g, a->cur->b);
+			}
+			xcb_flush(state.conn);
+
+			if (!done) sleep_ms(TRANSITION_FRAME_MS);
+		}
+		total_changed += n_anims;
+	}
+
+	for (int i = 0; i < n_anims; i++) {
+		free_gamma_ramp(anims[i].from);
+		free_gamma_ramp(anims[i].to);
+		free_gamma_ramp(anims[i].cur);
+	}
+	free(anims);
 
 	// Only run the synchronous round-trip trick if mutations were pushed
 	if (total_changed > 0) {

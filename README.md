@@ -17,6 +17,7 @@ Designed for instant execution, qredshift operates entirely statelessly on X11, 
 * **X11 & Wayland:** Seamless support for both X11 (via async XCB) and Wayland (via wlr-gamma-control-unstable-v1).
 * **Native Multi-Monitor Control:** Adjust settings globally or target individual displays by name or index (`-d`) with per-display overrides.
 * **Smart Gamma Ramp Skipping:** Queries current hardware state before execution; identical color targets are skipped to eliminate redundant updates.
+* **Smooth Transitions:** Optional `-T <ms>` duration fades between color settings by interpolating the hardware ramp, on both X11 and Wayland.
 * **Zero Overhead on X11:** Wayland backend is loaded dynamically at runtime via `dlopen()`. Pure X11 setups require no `libwayland-client` dependencies.
 * **Stateless & Instant:** Operates with zero persistent background presence on X11, applying modifications instantly and exiting.
 * **Wayland Daemon:** Features a minimal FIFO-based IPC daemon (`-wd`) necessary to satisfy Wayland's state-retention protocol requirements.
@@ -88,6 +89,7 @@ Reset: `qredshift -t`
 | `-b`      | 1.0                    | Brightness from 0.1 to 1.0       |
 | `-g`      | 1.0                    | Gamma from 0.1 to 5.0            |
 | `-d`      | `0:t=4500:b=1.0:g=1.0` | Target display (repeatable)      |
+| `-T`      | 0                      | Transition duration in ms (0-60000) |
 | `-xlib`   |                        | Use Xlib instead of XCB          |
 | `-interp` |                        | Use legacy interpolation method  |
 | `-wd`     |                        | Start Wayland daemon (no values) |
@@ -135,6 +137,9 @@ qredshift -t 6500 -d 85:t=4500:b=0.8
 
 # two displays, completely independent settings
 qredshift -d DisplayPort-0:t=6500:b=1.0 -d 85:t=4500:b=0.8
+
+# fade smoothly to 4000K over 1 second
+qredshift -t 4000 -T 1000
 
 # reset a single display
 qredshift -d 85

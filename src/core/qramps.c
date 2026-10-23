@@ -285,7 +285,7 @@ RGB kelvin_to_rgb_interpolated(int kelvin) {
  * Tanner Helland algorithm, optimized via polynomial regression against interpolated reference.
  * RMSE: 0.0152 vs interpolated reference
  *
- * https://tannerhelland.com/2012/09/18/ convert-temperature-rgb-algorithm-code.html
+ * https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html
  */
 RGB kelvin_to_rgb(double kelvin) {
 	double temp = kelvin / 100.0;
@@ -325,6 +325,17 @@ RGB kelvin_to_rgb(double kelvin) {
 
 //endregion
 
+QGAMMA *alloc_gamma_ramp(int ramp_size) {
+	QGAMMA *gamma_ramps = malloc(sizeof(QGAMMA) + 3 * (size_t)ramp_size * sizeof(uint16_t));
+	if (!gamma_ramps) return NULL;
+
+	gamma_ramps->r = (uint16_t *)(gamma_ramps + 1);
+	gamma_ramps->g = gamma_ramps->r + ramp_size;
+	gamma_ramps->b = gamma_ramps->g + ramp_size;
+
+	return gamma_ramps;
+}
+
 QGAMMA *calculate_gamma_ramp(int kelvin, double bright, double gamma, int ramp_size, int interpolation) {
 	const double MAX = UINT16_MAX + 1;
 	const double inv_gamma = 1.0 / gamma;
@@ -332,10 +343,8 @@ QGAMMA *calculate_gamma_ramp(int kelvin, double bright, double gamma, int ramp_s
 
 	RGB temperature = interpolation ? kelvin_to_rgb_interpolated(kelvin) : kelvin_to_rgb(kelvin);
 
-	QGAMMA *gamma_ramps = malloc(sizeof(QGAMMA) + 3 * ramp_size * sizeof(uint16_t));
-	gamma_ramps->r = (uint16_t *)(gamma_ramps + 1);
-	gamma_ramps->g = gamma_ramps->r + ramp_size;
-	gamma_ramps->b = gamma_ramps->g + ramp_size;
+	QGAMMA *gamma_ramps = alloc_gamma_ramp(ramp_size);
+	if (!gamma_ramps) return NULL;
 
 	for (int i = 0; i < ramp_size; i++) {
 		double value = (double)i / (double)ramp_size;

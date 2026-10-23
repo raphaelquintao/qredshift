@@ -19,6 +19,8 @@
 #include <wayland-client.h>
 
 #include "../core/qramps.h"
+#include "../core/qtransition.h"
+#include "../globals.h"
 #include "../utils/x11_utils.h"
 #include "protocols/wlr-gamma-control-unstable-v1-protocol.h"
 
@@ -39,6 +41,15 @@ typedef struct {
 	double current_gamma;
 	bool has_current;
 	int interpolation;
+
+	/* Transition */
+	QGAMMA *anim_from;
+	QGAMMA *anim_to;
+	QGAMMA *anim_cur;
+	int anim_size;
+	uint64_t anim_start_ms;
+	uint32_t anim_duration_ms;
+	bool animating;
 } OutputState;
 
 typedef struct {
@@ -200,7 +211,39 @@ static int create_anonymous_file(size_t size) {
 	return fd;
 }
 
-void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation) {
+// Set a fully computed ramp to the compositor via an anonymous shm file
+static bool apply_ramp(OutputState *os, const QGAMMA *ramp, int size) {
+	size_t table_size = 3 * (size_t)size * sizeof(uint16_t);
+	int fd = create_anonymous_file(table_size);
+	if (fd < 0) return false;
+
+	ssize_t written = write(fd, ramp->r, table_size);
+	if (written < 0 || (size_t)written != table_size) {
+		perror("write gamma table");
+		close(fd);
+		return false;
+	}
+	lseek(fd, 0, SEEK_SET);
+
+	zwlr_gamma_control_v1_set_gamma(os->gamma_control, fd);
+	close(fd);
+	return true;
+}
+
+// Drops any animation state for an output without touching the displayed ramp.
+static void release_animation(OutputState *os) {
+	free_gamma_ramp(os->anim_from);
+	free_gamma_ramp(os->anim_to);
+	free_gamma_ramp(os->anim_cur);
+	os->anim_from = NULL;
+	os->anim_to = NULL;
+	os->anim_cur = NULL;
+	os->anim_size = 0;
+	os->anim_duration_ms = 0;
+	os->animating = false;
+}
+
+void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation, int transition_ms) {
 	int restrict_to_targets = (num_targets > 0);
 
 	for (int i = 0; i < g_state.output_count; i++) {
@@ -220,6 +263,7 @@ void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget
 		}
 
 		if (os->has_current
+		    && !os->animating
 		    && os->interpolation == interpolation
 		    && os->current_kelvin == eff_k
 		    && os->current_bright == eff_b
@@ -230,40 +274,124 @@ void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget
 		if (!os->gamma_control || !os->gamma_size_known || os->failed) continue;
 		if (os->gamma_size == 0) continue;
 
-		QGAMMA *ramp = calculate_gamma_ramp(eff_k, eff_b, eff_g, (int)os->gamma_size, interpolation);
-		if (!ramp) {
+		int size = (int)os->gamma_size;
+		QGAMMA *to = calculate_gamma_ramp(eff_k, eff_b, eff_g, size, interpolation);
+		if (!to) {
 			fprintf(stderr, "Failed to compute gamma ramp\n");
 			continue;
 		}
 
-		size_t table_size = 3 * (size_t)os->gamma_size * sizeof(uint16_t);
-		int fd = create_anonymous_file(table_size);
-		if (fd < 0) {
-			free_gamma_ramp(ramp);
+		if (transition_ms <= 0) {
+			// Instant path: drop any running animation and apply directly.
+			// No transition ramps are computed or allocated.
+			release_animation(os);
+			apply_ramp(os, to, size);
+			free_gamma_ramp(to);
+
+			os->current_kelvin = eff_k;
+			os->current_bright = eff_b;
+			os->current_gamma = eff_g;
+			os->interpolation = interpolation;
+			os->has_current = true;
 			continue;
 		}
 
-		ssize_t written = write(fd, ramp->r, table_size);
-		if (written < 0 || (size_t)written != table_size) {
-			perror("write gamma table");
-			close(fd);
-			free_gamma_ramp(ramp);
+		// Transition path: capture the starting ramp before tearing down any
+		// running animation. If a transition is already running it continues
+		// smoothly from the frame currently on screen.
+		QGAMMA *from = NULL;
+		if (os->animating && os->anim_cur && os->anim_size == size) {
+			from = os->anim_cur;
+			os->anim_cur = NULL;
+		}
+		free_gamma_ramp(os->anim_from);
+		free_gamma_ramp(os->anim_to);
+		os->anim_from = NULL;
+		os->anim_to = NULL;
+		os->anim_size = 0;
+		os->anim_duration_ms = 0;
+		os->animating = false;
+
+		if (!from) {
+			int fk = os->has_current ? os->current_kelvin : DEF_KELVIN;
+			double fb = os->has_current ? os->current_bright : DEF_BRIGHT;
+			double fg = os->has_current ? os->current_gamma : DEF_GAMMA;
+			int fi = os->has_current ? os->interpolation : interpolation;
+			from = calculate_gamma_ramp(fk, fb, fg, size, fi);
+		}
+		if (!from) {
+			free_gamma_ramp(to);
 			continue;
 		}
-		lseek(fd, 0, SEEK_SET);
 
-		zwlr_gamma_control_v1_set_gamma(os->gamma_control, fd);
-		close(fd);
-		free_gamma_ramp(ramp);
+		QGAMMA *cur = alloc_gamma_ramp(size);
+		if (!cur) {
+			free_gamma_ramp(from);
+			free_gamma_ramp(to);
+			continue;
+		}
+
+		os->anim_from = from;
+		os->anim_to = to;
+		os->anim_cur = cur;
+		os->anim_size = size;
+		os->anim_start_ms = now_monotonic_ms();
+		os->anim_duration_ms = (uint32_t)transition_ms;
+		os->animating = true;
 
 		os->current_kelvin = eff_k;
 		os->current_bright = eff_b;
 		os->current_gamma = eff_g;
 		os->interpolation = interpolation;
 		os->has_current = true;
+
+		lerp_gamma_ramp(os->anim_from, os->anim_to, 0.0, os->anim_cur, size);
+		apply_ramp(os, os->anim_cur, size);
 	}
 
 	wl_display_flush(g_state.display);
+}
+
+// Advance any in-progress ramp transitions by one animation frame.
+// Returns true while at least one output is still animating.
+bool qwlr_animate_step(void) {
+	bool any = false;
+
+	for (int i = 0; i < g_state.output_count; i++) {
+		OutputState *os = &g_state.outputs[i];
+		if (!os->animating) continue;
+
+		double t = transition_progress(os->anim_start_ms, os->anim_duration_ms);
+		lerp_gamma_ramp(os->anim_from, os->anim_to, t, os->anim_cur, os->anim_size);
+		apply_ramp(os, os->anim_cur, os->anim_size);
+
+		if (t >= 1.0) {
+			release_animation(os);
+		} else {
+			any = true;
+		}
+	}
+
+	if (any) wl_display_flush(g_state.display);
+	return any;
+}
+
+// Milliseconds until the next frame should run, or -1 when no transition is active.
+int qwlr_next_timeout_ms(void) {
+	uint64_t now = now_monotonic_ms();
+	int best = -1;
+
+	for (int i = 0; i < g_state.output_count; i++) {
+		OutputState *os = &g_state.outputs[i];
+		if (!os->animating) continue;
+
+		uint64_t end = os->anim_start_ms + os->anim_duration_ms;
+		int remaining = (now >= end) ? 0 : (int)(end - now);
+		if (remaining > TRANSITION_FRAME_MS) remaining = TRANSITION_FRAME_MS;
+		if (best < 0 || remaining < best) best = remaining;
+	}
+
+	return best;
 }
 
 // --- Public API
@@ -328,6 +456,9 @@ void qwlr_cleanup(void) {
 		OutputState *os = &g_state.outputs[i];
 		if (os->gamma_control) zwlr_gamma_control_v1_destroy(os->gamma_control);
 		if (os->wl_output) wl_output_destroy(os->wl_output);
+		free_gamma_ramp(os->anim_from);
+		free_gamma_ramp(os->anim_to);
+		free_gamma_ramp(os->anim_cur);
 	}
 
 	if (g_state.manager) zwlr_gamma_control_manager_v1_destroy(g_state.manager);

@@ -11,11 +11,13 @@
 #include "../utils/x11_utils.h"
 
 
-
 bool qwlr_init(void);
 void qwlr_cleanup(void);
 
-void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation);
+void qwlr_set_temperature(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation, int transition_ms);
+
+bool qwlr_animate_step(void);
+int qwlr_next_timeout_ms(void);
 
 void qwlr_write_info(const char *reply_path);
 

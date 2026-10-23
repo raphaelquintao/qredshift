@@ -42,6 +42,15 @@ To support relative adjustments or status queries without keeping a daemon runni
 * **Smart Delta Writes:** Reads active hardware ramps first and skips hardware writes if values already match the target, avoiding unnecessary GPU state changes during smooth transitions.
 * **Algorithmic Ramps:** Computes gamma curves programmatically using Tanner Helland's [^3] color temperature research rather than relying on static precomputed lookup tables [^2] (though original lookup tables remain available via `-interp`).
 
+### Smooth Ramp Transitions
+
+Temperature, brightness, and gamma changes are applied instantly by default. Passing `-T <ms>` fades the change smoothly over the requested duration (up to 60000 ms) by linearly interpolating the live hardware ramp toward the target ramp at roughly 60 FPS.
+
+* **X11:** The one-shot process stays alive for the duration of the fade, applying each intermediate ramp in place before it exits. Works identically across the XCB and Xlib backends.
+* **Wayland:** The daemon drives the fade from its existing `poll()` loop using a timeout, so it never blocks and stays responsive to new commands. Sending a new command mid-fade retargets smoothly from the frame currently on screen.
+
+Because both backends interpolate in ramp-entry space, the fade stays visually smooth even across large temperature jumps and never depends on lossy reverse reconstruction of the starting state.
+
 ---
 
 ## Critical X11 Engine Bugs Fixed

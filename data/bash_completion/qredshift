@@ -53,6 +53,10 @@ _qredshift() {
     COMPREPLY=($(compgen -W "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" -- "$cur"))
     return
     ;;
+  -T)
+    COMPREPLY=($(compgen -W "0 100 200 300 500 1000 2000 5000 10000" -- "$cur"))
+    return
+    ;;
   -d)
     local displays
     displays=$(qredshift -i 2>/dev/null | awk -F: '/^[0-9]+:[CD]:/ { print $1; print $3 }')

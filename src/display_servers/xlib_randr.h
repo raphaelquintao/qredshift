@@ -24,4 +24,4 @@ int xlib_randr_show_info(int connected, int interpolation);
 
 int xlib_randr_set_temperature(int kelvin, double bright, double gamma,
                                int interpolation, DisplayTarget *targets,
-                               int num_targets);
+                               int num_targets, int transition_ms);

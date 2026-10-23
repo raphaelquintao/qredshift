@@ -1,5 +1,10 @@
 # Changelog
 
+### 1.0.1
+
+- **Added**
+  * **Smooth Transitions:** Optional `-T <ms>` duration that fades temperature, brightness, and gamma changes by interpolating the hardware ramp. Implemented as an in-place ramp interpolation on X11 (XCB and Xlib) and as a non-blocking, poll-driven animation in the Wayland daemon.
+
 ### 1.0.0 - Wayland, Multi-Monitor, and More...
 
 - **Added**

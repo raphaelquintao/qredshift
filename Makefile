@@ -8,8 +8,8 @@ MAKEFLAGS += --no-print-directory
 
 
 NAME    := qredshift
-VERSION := 1.0.0
-REVISION := 1
+VERSION := 1.0.1
+REVISION := 0
 
 ARCHS :=  x86_64 i686 aarch64 armv7l powerpc64le riscv64
 
@@ -47,7 +47,7 @@ PLUGIN_TARGET = libqredshift_wayland_$(VERSION).so
 srсs = $(shell find $(SRC_DIR) -name '*.c')
 
 wayland_core = $(filter %backend_wayland.c %qwlr.c %protocol.c,$(srсs))
-common_srcs = $(filter %globals.c %qcli.c %x11_utils.c %qramps.c, $(srсs))
+common_srcs = $(filter %globals.c %qcli.c %x11_utils.c %qramps.c %qtransition.c, $(srсs))
 wayland_srcs = $(wayland_core) $(common_srcs)
 
 main_srcs    = $(filter-out %backend_wayland.c %qwlr.c %protocol.c,$(srсs))
@@ -116,7 +116,7 @@ uninstall: ## Uninstall compiled binary (require sudo)
 
 clean: ## Remove build artifacts
 	@$(call qecho, "Cleaning... \n", "0;33")
-	@rm -rf $(BASE)/build/* $(BASE)/bin/*
+	@rm -rf $(BASE)/build/* $(BASE)/bin/* $(BASE)/dist/*
 
 
 .deb: ## Used by docker, dont call it directly

@@ -36,6 +36,7 @@ enum {
 	P_GAMMA,
 	P_DISPLAY,
 	P_SEP2,
+	P_TRANS,
 	P_INTERP,
 	P_WD,
 };
@@ -74,7 +75,7 @@ static bool is_daemon_running(void) {
 	return true;
 }
 
-static bool try_send_to_daemon(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation) {
+static bool try_send_to_daemon(int kelvin, double bright, double gamma, DisplayTarget *targets, int num_targets, int interpolation, int transition_ms) {
 	const char *path = fifo_path();
 
 	if (access(path, F_OK) != 0) return false;
@@ -83,7 +84,7 @@ static bool try_send_to_daemon(int kelvin, double bright, double gamma, DisplayT
 	if (fd < 0) return false;
 
 	char line[2048];
-	int len = snprintf(line, sizeof(line), "SET %d %f %f %d %d", kelvin, bright, gamma, interpolation, num_targets);
+	int len = snprintf(line, sizeof(line), "SET %d %f %f %d %d %d", kelvin, bright, gamma, interpolation, transition_ms, num_targets);
 
 	for (int i = 0; i < num_targets && len < (int)sizeof(line); i++) {
 		len += snprintf(line + len, sizeof(line) - (size_t)len,
@@ -160,10 +161,24 @@ static void handle_fifo_line(const char *line) {
 		double bright = DEF_BRIGHT;
 		double gamma = DEF_GAMMA;
 		int interp = 0;
+		int transition_ms = 0;
 		int num_targets = 0;
 		int consumed = 0;
 
-		if (sscanf(line, "SET %d %lf %lf %d %d%n", &kelvin, &bright, &gamma, &interp, &num_targets, &consumed) < 3) {
+		// With transition:
+		// SET <k> <b> <g> <interp> <transition_ms> <num_targets> [targets...]
+		int matched = sscanf(line, "SET %d %lf %lf %d %d %d%n", &kelvin, &bright, &gamma, &interp, &transition_ms, &num_targets, &consumed);
+
+		// Without transition:
+		// SET <k> <b> <g> <interp> <num_targets> [targets...]
+		if (matched < 6) {
+			transition_ms = 0;
+			num_targets = 0;
+			consumed = 0;
+			matched = sscanf(line, "SET %d %lf %lf %d %d%n", &kelvin, &bright, &gamma, &interp, &num_targets, &consumed);
+		}
+
+		if (matched < 3) {
 			fprintf(stderr, "Ignoring malformed SET command: %s\n", line);
 			return;
 		}
@@ -171,6 +186,7 @@ static void handle_fifo_line(const char *line) {
 		kelvin = clamp_int(kelvin, MIN_KELVIN, MAX_KELVIN);
 		bright = clamp_float(bright, MIN_BRIGHT, MAX_BRIGHT);
 		gamma = clamp_float(gamma, MIN_GAMMA, MAX_GAMMA);
+		transition_ms = clamp_int(transition_ms, MIN_TRANSITION_MS, MAX_TRANSITION_MS);
 
 		DisplayTarget targets[MAX_TARGETS];
 		int found = 0;
@@ -201,7 +217,7 @@ static void handle_fifo_line(const char *line) {
 
 		printf("%s \n", line);
 
-		qwlr_set_temperature(kelvin, bright, gamma, targets, found, interp);
+		qwlr_set_temperature(kelvin, bright, gamma, targets, found, interp, transition_ms);
 
 	} else if (strcmp(cmd, "INFO") == 0) {
 		char reply_path[256] = {0};
@@ -223,11 +239,11 @@ static void handle_signal(int sig) {
 }
 
 static int run_daemon(int kelvin, double bright, double gamma, DisplayTarget *targets,
-                      int num_targets, int interpolation, int start_only) {
+                      int num_targets, int interpolation, int transition_ms, int start_only) {
 	if (!qwlr_init()) return EXIT_FAILURE;
 
 	if (!start_only)
-		qwlr_set_temperature(kelvin, bright, gamma, targets, num_targets, interpolation);
+		qwlr_set_temperature(kelvin, bright, gamma, targets, num_targets, interpolation, transition_ms);
 
 	const char *path = fifo_path();
 	unlink(path);
@@ -263,7 +279,8 @@ static int run_daemon(int kelvin, double bright, double gamma, DisplayTarget *ta
 		fds[1].fd = fifo_fd;
 		fds[1].events = POLLIN;
 
-		int ret = poll(fds, 2, -1);
+		// Wake up in time for the next animation frame, if any.
+		int ret = poll(fds, 2, qwlr_next_timeout_ms());
 		if (ret < 0) {
 			qwlr_cancel_read();
 			if (errno == EINTR) continue;
@@ -274,6 +291,9 @@ static int run_daemon(int kelvin, double bright, double gamma, DisplayTarget *ta
 		if (fds[0].revents & POLLIN) qwlr_read_events();
 		else qwlr_cancel_read();
 		qwlr_dispatch_pending();
+
+		// Advance any in-progress ramp transition (also runs on poll timeout).
+		qwlr_animate_step();
 
 		if (fds[1].revents & POLLIN) {
 			ssize_t n = read(fifo_fd, buf + buf_len, sizeof(buf) - 1 - buf_len);
@@ -316,6 +336,7 @@ int wayland_backend(int argc, char *argv[]) {
 		{"-g", "Gamma from " TOSTRING(MIN_GAMMA) " to " TOSTRING(MAX_GAMMA), TOSTRING(DEF_GAMMA), 0},
 		{"-d", "Target display (repeatable)", "<id[:t=K][:b=B][:g=G]>", 0},
 		{"", "", "", 0},
+		{"-T", "Transition duration in ms (" TOSTRING(MIN_TRANSITION_MS) "-" TOSTRING(MAX_TRANSITION_MS) ")", "0", 0},
 		{"-interp", "Use interpolation method", "", 0},
 		{"-wd", "Starts wayland daemon without initial values", "", 0},
 	};
@@ -355,7 +376,7 @@ int wayland_backend(int argc, char *argv[]) {
 	}
 
 	if (!(params[P_TEMP].exists || params[P_BRIGHT].exists || params[P_GAMMA].exists
-		|| params[P_DISPLAY].exists || params[P_WD].exists)) {
+	      || params[P_DISPLAY].exists || params[P_WD].exists)) {
 		printf("Try '%s -h' for more information.\n", APP_NAME);
 		return EXIT_FAILURE;
 	}
@@ -363,10 +384,12 @@ int wayland_backend(int argc, char *argv[]) {
 	int kelvin = qatoi(params[P_TEMP].value, DEF_KELVIN);
 	double bright = qatof(params[P_BRIGHT].value, DEF_BRIGHT);
 	double gamma = qatof(params[P_GAMMA].value, DEF_GAMMA);
+	int transition = qatoi(params[P_TRANS].value, DEF_TRANSITION_MS);
 
 	kelvin = clamp_int(kelvin, MIN_KELVIN, MAX_KELVIN);
 	bright = clamp_float(bright, MIN_BRIGHT, MAX_BRIGHT);
 	gamma = clamp_float(gamma, MIN_GAMMA, MAX_GAMMA);
+	transition = clamp_int(transition, MIN_TRANSITION_MS, MAX_TRANSITION_MS);
 
 	DisplayTarget targets[MAX_TARGETS];
 	int num_targets = 0;
@@ -380,10 +403,10 @@ int wayland_backend(int argc, char *argv[]) {
 			printf("Wayland daemon already running: (fifo: %s)\n", fifo_path());
 			return EXIT_FAILURE;
 		}
-		return run_daemon(kelvin, bright, gamma, targets, num_targets, interp, 1);
+		return run_daemon(kelvin, bright, gamma, targets, num_targets, interp, transition, 1);
 	}
 
-	if (try_send_to_daemon(kelvin, bright, gamma, targets, num_targets, interp)) return EXIT_SUCCESS;
+	if (try_send_to_daemon(kelvin, bright, gamma, targets, num_targets, interp, transition)) return EXIT_SUCCESS;
 
-	return run_daemon(kelvin, bright, gamma, targets, num_targets, interp, 0);
+	return run_daemon(kelvin, bright, gamma, targets, num_targets, interp, transition, 0);
 }
